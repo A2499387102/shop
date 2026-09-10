@@ -209,6 +209,12 @@
   .bill-card img{ width:100%; height:auto; display:block; border-radius:8px; border:1px solid var(--line); }
   .bill-card .btn-row{ margin-top:12px; }
   .bill-tip{ font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5; }
+  .draft-tip{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--surface2); border:1px solid var(--accent); border-radius:10px;
+    padding:10px 12px; margin-bottom:12px; font-size:12px; color:var(--ink2); line-height:1.4;
+  }
+  .draft-tip .btn{ width:auto; flex:none; padding:8px 12px; font-size:13px; }
   .bill-x{
     position:absolute; top:12px; right:14px; width:36px; height:36px; border-radius:50%;
     border:0; background:rgba(255,255,255,0.18); color:#fff; font-size:16px; cursor:pointer;
@@ -227,6 +233,10 @@
     <section id="tab-order" class="tab-panel active">
       <div class="card">
         <h2 id="orderFormTitle">记一笔欠账</h2>
+        <div class="draft-tip" id="orderDraftTip" style="display:none">
+          <span>上次没填完的内容，已经帮你填好了。</span>
+          <button type="button" class="btn ghost" id="orderDraftClear">清空重填</button>
+        </div>
         <form id="orderForm" autocomplete="off">
           <div class="field">
             <label for="oCustomer">客户名称</label>
@@ -282,6 +292,10 @@
     <section id="tab-repay" class="tab-panel">
       <div class="card">
         <h2 id="repayFormTitle">记一笔还款</h2>
+        <div class="draft-tip" id="repayDraftTip" style="display:none">
+          <span>上次没填完的内容，已经帮你填好了。</span>
+          <button type="button" class="btn ghost" id="repayDraftClear">清空重填</button>
+        </div>
         <form id="repayForm" autocomplete="off">
           <div class="field">
             <label for="rCustomer">客户名称</label>
@@ -328,6 +342,10 @@
     <section id="tab-return" class="tab-panel">
       <div class="card">
         <h2 id="returnFormTitle">记一笔退货</h2>
+        <div class="draft-tip" id="returnDraftTip" style="display:none">
+          <span>上次没填完的内容，已经帮你填好了。</span>
+          <button type="button" class="btn ghost" id="returnDraftClear">清空重填</button>
+        </div>
         <form id="returnForm" autocomplete="off">
           <div class="field">
             <label for="tCustomer">客户名称</label>
@@ -959,6 +977,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       el("oNote").value = o.note||"";
       renderItemRows(o.items, "orderItems", "oTotalDisplay");
     }
+    touchDraft("order");
   }
   function onOrderSubmit(e){
     e.preventDefault();
@@ -988,6 +1007,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     el("oDate").value = todayStr();
     el("oPaid").value = "0";
     renderItemRows(null, "orderItems", "oTotalDisplay");
+    touchDraft("order");
   }
 
   // ---------- 表单：退货 ----------
@@ -1002,6 +1022,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       el("tNote").value = t.note||"";
       renderItemRows(t.items, "returnItems", "tTotalDisplay");
     }
+    touchDraft("ret");
   }
   function onReturnSubmit(e){
     e.preventDefault();
@@ -1029,6 +1050,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     el("returnForm").reset();
     el("tDate").value = todayStr();
     renderItemRows(null, "returnItems", "tTotalDisplay");
+    touchDraft("ret");
   }
 
   // ---------- 账单图 ----------
@@ -1331,6 +1353,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       el("rAmount").value = r.amount;
       el("rNote").value = r.note||"";
     }
+    touchDraft("repay");
   }
   function onRepaySubmit(e){
     e.preventDefault();
@@ -1355,6 +1378,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   function resetRepayForm(){
     el("repayForm").reset();
     el("rDate").value = todayStr();
+    touchDraft("repay");
   }
 
   // ---------- 删除 ----------
@@ -1602,6 +1626,118 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     reader.readAsArrayBuffer(file);
   }
 
+  // ---------- 草稿自动保存（防止中途退出丢内容） ----------
+  var DRAFT_KEY = "debtLedger.draft.v1";
+  var draftReady = false;
+  var draftTimer = null;
+  var draftPending = {};
+  var DRAFT_IDS = {
+    order: { tip:"orderDraftTip", btn:"orderDraftClear", form:"orderForm" },
+    repay: { tip:"repayDraftTip", btn:"repayDraftClear", form:"repayForm" },
+    ret:   { tip:"returnDraftTip", btn:"returnDraftClear", form:"returnForm" }
+  };
+  var ITEM_BOX_KIND = { orderItems:"order", returnItems:"ret" };
+
+  function readDrafts(){
+    try{
+      var raw = localStorage.getItem(DRAFT_KEY);
+      if(raw){ var d = JSON.parse(raw); if(d && typeof d === "object") return d; }
+    }catch(e){}
+    return {};
+  }
+  function writeDrafts(d){
+    try{ localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }catch(e){}
+  }
+  function rawItems(boxId){
+    var rows = el(boxId).querySelectorAll(".item-row");
+    var out = [];
+    for(var i=0;i<rows.length;i++){
+      var r = rows[i];
+      out.push({
+        itemCode: r.querySelector(".code").value,
+        price: r.querySelector(".price").value,
+        qty: r.querySelector(".qty").value
+      });
+    }
+    return out;
+  }
+  function itemsAllBlank(items){
+    for(var i=0;i<items.length;i++){
+      if(items[i].itemCode || items[i].price || items[i].qty) return false;
+    }
+    return true;
+  }
+  function collectDraft(kind){
+    if(kind === "order"){
+      var items = rawItems("orderItems");
+      var o = { editingId:editingOrderId||null, customer:el("oCustomer").value, date:el("oDate").value, paid:el("oPaid").value, note:el("oNote").value, items:items };
+      if(!o.editingId && !o.customer && !o.note && !num(o.paid) && itemsAllBlank(items)) return null;
+      return o;
+    }
+    if(kind === "repay"){
+      var r = { editingId:editingRepayId||null, customer:el("rCustomer").value, date:el("rDate").value, amount:el("rAmount").value, note:el("rNote").value };
+      if(!r.editingId && !r.customer && !r.amount && !r.note) return null;
+      return r;
+    }
+    var tItems = rawItems("returnItems");
+    var t = { editingId:editingReturnId||null, customer:el("tCustomer").value, date:el("tDate").value, note:el("tNote").value, items:tItems };
+    if(!t.editingId && !t.customer && !t.note && itemsAllBlank(tItems)) return null;
+    return t;
+  }
+  function hideDraftTip(kind){ el(DRAFT_IDS[kind].tip).style.display = "none"; }
+  function touchDraft(kind){
+    if(!draftReady) return;
+    var d = readDrafts();
+    var rec = collectDraft(kind);
+    if(rec){ d[kind] = rec; }
+    else { delete d[kind]; hideDraftTip(kind); }
+    writeDrafts(d);
+  }
+  function scheduleDraft(kind){
+    if(!draftReady) return;
+    draftPending[kind] = true;
+    if(draftTimer) clearTimeout(draftTimer);
+    draftTimer = setTimeout(flushDrafts, 300);
+  }
+  function flushDrafts(){
+    if(draftTimer){ clearTimeout(draftTimer); draftTimer = null; }
+    var kinds = Object.keys(draftPending);
+    draftPending = {};
+    for(var i=0;i<kinds.length;i++) touchDraft(kinds[i]);
+  }
+  function applyDraft(kind, rec){
+    if(kind === "order"){
+      var o = rec.editingId ? data.orders.find(function(x){ return x.id===rec.editingId; }) : null;
+      setOrderEditMode(o || null);
+      el("oCustomer").value = rec.customer||"";
+      el("oDate").value = rec.date || todayStr();
+      el("oPaid").value = (rec.paid==="" || rec.paid==null) ? "0" : rec.paid;
+      el("oNote").value = rec.note||"";
+      renderItemRows((rec.items && rec.items.length) ? rec.items : null, "orderItems", "oTotalDisplay");
+    } else if(kind === "repay"){
+      var r = rec.editingId ? data.repayments.find(function(x){ return x.id===rec.editingId; }) : null;
+      setRepayEditMode(r || null);
+      el("rCustomer").value = rec.customer||"";
+      el("rDate").value = rec.date || todayStr();
+      el("rAmount").value = rec.amount||"";
+      el("rNote").value = rec.note||"";
+    } else {
+      var t = rec.editingId ? data.returns.find(function(x){ return x.id===rec.editingId; }) : null;
+      setReturnEditMode(t || null);
+      el("tCustomer").value = rec.customer||"";
+      el("tDate").value = rec.date || todayStr();
+      el("tNote").value = rec.note||"";
+      renderItemRows((rec.items && rec.items.length) ? rec.items : null, "returnItems", "tTotalDisplay");
+    }
+    el(DRAFT_IDS[kind].tip).style.display = "flex";
+  }
+  function restoreDrafts(){
+    var d = readDrafts();
+    ["order","repay","ret"].forEach(function(kind){
+      if(d[kind]) applyDraft(kind, d[kind]);
+    });
+  }
+
   // ---------- 事件绑定 ----------
   function bindItemRows(boxId, totalId){
     el(boxId).addEventListener("input", function(e){
@@ -1614,6 +1750,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       if(box.querySelectorAll(".item-row").length > 1){ row.remove(); }
       else { row.querySelectorAll("input").forEach(function(inp){ inp.value=""; }); }
       updateTotal(boxId, totalId);
+      if(ITEM_BOX_KIND[boxId]) scheduleDraft(ITEM_BOX_KIND[boxId]);
     });
   }
   bindItemRows("orderItems", "oTotalDisplay");
@@ -1723,12 +1860,28 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   el("billClose").addEventListener("click", closeBill);
   el("billViewer").addEventListener("click", function(e){ if(e.target === el("billViewer")) closeBill(); });
 
+  ["order","repay","ret"].forEach(function(kind){
+    el(DRAFT_IDS[kind].form).addEventListener("input", function(){ scheduleDraft(kind); });
+    el(DRAFT_IDS[kind].form).addEventListener("change", function(){ scheduleDraft(kind); });
+    el(DRAFT_IDS[kind].btn).addEventListener("click", function(){
+      if(kind === "order"){ setOrderEditMode(null); resetOrderForm(); }
+      else if(kind === "repay"){ setRepayEditMode(null); resetRepayForm(); }
+      else { setReturnEditMode(null); resetReturnForm(); }
+      var d = readDrafts(); delete d[kind]; writeDrafts(d);
+      hideDraftTip(kind);
+    });
+  });
+  document.addEventListener("visibilitychange", function(){ if(document.hidden) flushDrafts(); });
+  window.addEventListener("pagehide", flushDrafts);
+
   // ---------- 初始化 ----------
   el("autoBackupToggle").checked = settings.autoBackup;
   el("storeNameInput").value = settings.storeName || "";
   resetOrderForm();
   resetRepayForm();
   resetReturnForm();
+  restoreDrafts();
+  draftReady = true;
   renderAll();
   updateBackupUI();
 })();
