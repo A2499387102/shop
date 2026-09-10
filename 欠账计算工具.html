@@ -123,6 +123,9 @@
     font-size:12px; padding:5px 12px; border-radius:8px; cursor:pointer; font-weight:600;
   }
   .op-btn.del{ color:var(--neg); }
+  .tag{ display:inline-block; font-size:11px; font-weight:700; padding:1px 6px; border-radius:6px; margin-right:6px; background:var(--surface2); color:var(--ink2); vertical-align:1px; }
+  .tag.owe{ background:var(--neg-bg); color:var(--neg); }
+  .tag.pay{ background:var(--pos-bg); color:var(--pos); }
   .empty{ text-align:center; color:var(--muted); font-size:13px; padding:28px 10px; }
 
   .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
@@ -194,6 +197,22 @@
   .switch input:checked + .slider:before{ transform:translateX(20px); }
   .nav-dot{ position:absolute; top:7px; right:calc(50% - 24px); width:8px; height:8px; border-radius:50%; background:var(--neg); display:none; }
   .nav-dot.show{ display:block; }
+  .bill-viewer{
+    position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:70;
+    display:none; align-items:center; justify-content:center; padding:16px;
+  }
+  .bill-viewer.open{ display:flex; }
+  .bill-card{
+    background:var(--surface); border-radius:14px; padding:12px;
+    max-width:520px; width:100%; max-height:88vh; overflow:auto;
+  }
+  .bill-card img{ width:100%; height:auto; display:block; border-radius:8px; border:1px solid var(--line); }
+  .bill-card .btn-row{ margin-top:12px; }
+  .bill-tip{ font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5; }
+  .bill-x{
+    position:absolute; top:12px; right:14px; width:36px; height:36px; border-radius:50%;
+    border:0; background:rgba(255,255,255,0.18); color:#fff; font-size:16px; cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -241,6 +260,21 @@
         </form>
       </div>
       <div class="list-title">最近订单</div>
+      <div class="card">
+        <div class="search-row">
+          <input id="oFilterName" list="customerDatalist" type="search" placeholder="按客户名称筛选…">
+        </div>
+        <div class="row2">
+          <div class="field"><label for="oFilterFrom">开始日期</label><input id="oFilterFrom" type="date"></div>
+          <div class="field"><label for="oFilterTo">结束日期</label><input id="oFilterTo" type="date"></div>
+        </div>
+        <div class="toolbar" style="margin-bottom:0">
+          <button type="button" class="btn ghost" id="oFilterToday">今天</button>
+          <button type="button" class="btn ghost" id="oFilterWeek">近7天</button>
+          <button type="button" class="btn ghost" id="oFilterMonth">本月</button>
+          <button type="button" class="btn ghost" id="oFilterClear">清除</button>
+        </div>
+      </div>
       <div id="orderList"></div>
     </section>
 
@@ -272,7 +306,73 @@
         </form>
       </div>
       <div class="list-title">最近还款</div>
+      <div class="card">
+        <div class="search-row">
+          <input id="rFilterName" list="customerDatalist" type="search" placeholder="按客户名称筛选…">
+        </div>
+        <div class="row2">
+          <div class="field"><label for="rFilterFrom">开始日期</label><input id="rFilterFrom" type="date"></div>
+          <div class="field"><label for="rFilterTo">结束日期</label><input id="rFilterTo" type="date"></div>
+        </div>
+        <div class="toolbar" style="margin-bottom:0">
+          <button type="button" class="btn ghost" id="rFilterToday">今天</button>
+          <button type="button" class="btn ghost" id="rFilterWeek">近7天</button>
+          <button type="button" class="btn ghost" id="rFilterMonth">本月</button>
+          <button type="button" class="btn ghost" id="rFilterClear">清除</button>
+        </div>
+      </div>
       <div id="repayList"></div>
+    </section>
+
+    <!-- 退货 -->
+    <section id="tab-return" class="tab-panel">
+      <div class="card">
+        <h2 id="returnFormTitle">记一笔退货</h2>
+        <form id="returnForm" autocomplete="off">
+          <div class="field">
+            <label for="tCustomer">客户名称</label>
+            <input id="tCustomer" list="customerDatalist" placeholder="如：张三" required>
+          </div>
+          <div class="field">
+            <label for="tDate">日期</label>
+            <input id="tDate" type="date" required>
+          </div>
+          <div class="field">
+            <label>货号明细</label>
+            <div id="returnItems"></div>
+            <button type="button" class="btn ghost add-item" id="addReturnItemBtn">＋ 添加一个货号</button>
+          </div>
+          <div class="calc-total">
+            <span class="cap">退货总额（自动累加）</span>
+            <span class="val" id="tTotalDisplay">0.00</span>
+          </div>
+          <div class="field">
+            <label for="tNote">备注（可选）</label>
+            <input id="tNote" type="text" placeholder="如：退货原因、退款方式">
+          </div>
+          <button type="submit" class="btn" id="returnSaveBtn">保存退货</button>
+          <div class="btn-row">
+            <button type="button" class="btn ghost" id="returnCancelBtn" style="display:none">取消编辑</button>
+          </div>
+        </form>
+      </div>
+      <div class="list-title">最近退货</div>
+      <div class="card">
+        <div class="search-row">
+          <input id="tFilterName" list="customerDatalist" type="search" placeholder="按客户名称筛选…">
+        </div>
+        <div class="row2">
+          <div class="field"><label for="tFilterFrom">开始日期</label><input id="tFilterFrom" type="date"></div>
+          <div class="field"><label for="tFilterTo">结束日期</label><input id="tFilterTo" type="date"></div>
+        </div>
+        <div class="toolbar" style="margin-bottom:0">
+          <button type="button" class="btn ghost" id="tFilterToday">今天</button>
+          <button type="button" class="btn ghost" id="tFilterWeek">近7天</button>
+          <button type="button" class="btn ghost" id="tFilterMonth">本月</button>
+          <button type="button" class="btn ghost" id="tFilterClear">清除</button>
+        </div>
+      </div>
+      <div id="returnList"></div>
     </section>
 
     <!-- 总览 / 查询 -->
@@ -281,7 +381,8 @@
         <div class="stat"><div class="num" id="stat-customers">0</div><div class="lbl">欠款客户</div></div>
         <div class="stat"><div class="num" id="stat-debt">0.00</div><div class="lbl">总欠款（元）</div></div>
         <div class="stat"><div class="num" id="stat-paid">0.00</div><div class="lbl">总已还（元）</div></div>
-        <div class="stat"><div class="num neg" id="stat-remaining">0.00</div><div class="lbl">总未还（元）</div></div>
+        <div class="stat"><div class="num" id="stat-remaining">0.00</div><div class="lbl">总未还（元）</div></div>
+        <div class="stat"><div class="num" id="stat-refund">0.00</div><div class="lbl">总退货（元）</div></div>
       </div>
       <div class="card">
         <div class="backup-row">
@@ -296,6 +397,12 @@
         </div>
         <div class="backup-status" id="backupStatus"></div>
       </div>
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>店名（生成账单图时显示在图片顶部，可留空）</label>
+          <input id="storeNameInput" type="text" placeholder="如：张三五金店" maxlength="20">
+        </div>
+      </div>
       <div class="toolbar">
         <button class="btn" id="btnExport">导出 Excel</button>
         <button class="btn ghost" id="btnImport">导入 Excel</button>
@@ -304,12 +411,27 @@
         <input id="searchInput" type="search" placeholder="输入客户名称，查询欠款与还款明细…">
       </div>
       <div id="customerList"></div>
+      <div class="list-title">按日期查询</div>
+      <div class="card">
+        <div class="row2">
+          <div class="field"><label for="dateFrom">开始日期</label><input id="dateFrom" type="date"></div>
+          <div class="field"><label for="dateTo">结束日期</label><input id="dateTo" type="date"></div>
+        </div>
+        <div class="toolbar" style="margin-bottom:0">
+          <button type="button" class="btn ghost" id="quickToday">今天</button>
+          <button type="button" class="btn ghost" id="quickWeek">近7天</button>
+          <button type="button" class="btn ghost" id="quickMonth">本月</button>
+          <button type="button" class="btn ghost" id="quickClear">清除</button>
+        </div>
+      </div>
+      <div id="dateList"></div>
     </section>
   </main>
 
   <nav class="bottom-nav">
     <button class="nav-btn active" data-tab="order"><span class="ico">✎</span>记账</button>
     <button class="nav-btn" data-tab="repay"><span class="ico">¥</span>还款</button>
+    <button class="nav-btn" data-tab="return"><span class="ico">↩</span>退货</button>
     <button class="nav-btn" data-tab="overview"><span class="ico">▤</span>总览<span class="nav-dot" id="navDot"></span></button>
   </nav>
 </div>
@@ -328,7 +450,24 @@
     <div id="modalOrders"></div>
     <div class="subhead">还款明细</div>
     <div id="modalRepays"></div>
+    <div class="subhead">退货明细</div>
+    <div id="modalReturns"></div>
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn" id="btnBill">📷 生成账单图</button>
+    </div>
   </div>
+</div>
+
+<div class="bill-viewer" id="billViewer">
+  <div class="bill-card">
+    <img id="billImg" alt="账单图">
+    <div class="btn-row">
+      <button class="btn" id="billShare">📤 分享</button>
+      <button class="btn ghost" id="billSave">💾 保存图片</button>
+    </div>
+    <div class="bill-tip">点右上角 ✕ 关闭；若分享面板里没有微信，可长按图片保存到相册，再去微信发送</div>
+  </div>
+  <button class="bill-x" id="billClose">✕</button>
 </div>
 
 <input type="file" id="importInput" accept=".xlsx,.xls" hidden>
@@ -368,9 +507,12 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   var SETTINGS_KEY = "debtLedger.settings.v1";
   var BK_KEY = "debtLedger.backupRev.v1";
   var data = load();
+  if(data.photosPurged){ delete data.photosPurged; save(); }
   var settings = loadSettings();
   var editingOrderId = null;
   var editingRepayId = null;
+  var editingReturnId = null;
+  var billCustomer = null;
 
   // ---------- 工具函数 ----------
   function todayStr(){
@@ -383,6 +525,9 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
            pad(d.getHours()) + "时" + pad(d.getMinutes()) + "分" + pad(d.getSeconds()) + "秒";
   }
   function pad(n){ return (n<10?"0":"")+n; }
+  function dateStrOf(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function shiftToday(days){ var d=new Date(); d.setDate(d.getDate()+days); return dateStrOf(d); }
+  function monthStart(){ var d=new Date(); return dateStrOf(new Date(d.getFullYear(), d.getMonth(), 1)); }
   function num(v){
     if(v===null || v===undefined || v==="") return 0;
     var n = parseFloat(v);
@@ -419,12 +564,23 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         var d = JSON.parse(raw);
         if(d && Array.isArray(d.orders) && Array.isArray(d.repayments)){
           if(typeof d.rev !== "number") d.rev = 0;
+          if(!Array.isArray(d.returns)) d.returns = [];
           d.orders = d.orders.map(migrateOrder);
+          if(stripRecordPhotos(d)) d.photosPurged = true;
           return d;
         }
       }
     }catch(e){}
-    return { orders:[], repayments:[] };
+    return { orders:[], repayments:[], returns:[] };
+  }
+  function stripRecordPhotos(d){
+    var changed = false;
+    ["orders","repayments","returns"].forEach(function(k){
+      (d[k]||[]).forEach(function(rec){
+        if(rec && rec.photos !== undefined){ delete rec.photos; changed = true; }
+      });
+    });
+    return changed;
   }
   function save(){
     try{ localStorage.setItem(LS_KEY, JSON.stringify(data)); }catch(e){ alert("保存失败，浏览器存储可能已满："+e.message); }
@@ -432,9 +588,15 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   function loadSettings(){
     try{
       var raw = localStorage.getItem(SETTINGS_KEY);
-      if(raw){ var s = JSON.parse(raw); if(s && typeof s.autoBackup === "boolean") return s; }
+      if(raw){
+        var s = JSON.parse(raw);
+        if(s && typeof s.autoBackup === "boolean"){
+          if(typeof s.storeName !== "string") s.storeName = "";
+          return s;
+        }
+      }
     }catch(e){}
-    return { autoBackup: true };
+    return { autoBackup: true, storeName: "" };
   }
   function saveSettings(){
     try{ localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); }catch(e){}
@@ -469,7 +631,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     if(dot) dot.classList.toggle("show", isDirty());
   }
   function maybeAutoBackup(){
-    if(settings.autoBackup && (data.orders.length + data.repayments.length) > 0){
+    if(settings.autoBackup && (data.orders.length + data.repayments.length + data.returns.length) > 0){
       try{ exportExcel(true); }catch(e){}
     }
   }
@@ -479,26 +641,28 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     var set = {};
     data.orders.forEach(function(o){ if(o.customer) set[o.customer]=1; });
     data.repayments.forEach(function(r){ if(r.customer) set[r.customer]=1; });
+    data.returns.forEach(function(t){ if(t.customer) set[t.customer]=1; });
     return Object.keys(set).sort(function(a,b){ return a.localeCompare(b,"zh"); });
   }
   function customerSummary(name){
-    var totalDebt=0, orderPaid=0, repay=0;
+    var totalDebt=0, orderPaid=0, repay=0, refund=0;
     data.orders.forEach(function(o){ if(o.customer===name){ totalDebt+=num(o.total); orderPaid+=num(o.paid); } });
     data.repayments.forEach(function(r){ if(r.customer===name){ repay+=num(r.amount); } });
-    totalDebt = round2(totalDebt); orderPaid = round2(orderPaid); repay = round2(repay);
+    data.returns.forEach(function(t){ if(t.customer===name){ refund+=num(t.total); } });
+    totalDebt = round2(totalDebt); orderPaid = round2(orderPaid); repay = round2(repay); refund = round2(refund);
     var totalPaid = round2(orderPaid + repay);
-    var remaining = round2(totalDebt - totalPaid);
-    return { totalDebt:totalDebt, orderPaid:orderPaid, repay:repay, totalPaid:totalPaid, remaining:remaining };
+    var remaining = round2(totalDebt - totalPaid - refund);
+    return { totalDebt:totalDebt, orderPaid:orderPaid, repay:repay, refund:refund, totalPaid:totalPaid, remaining:remaining };
   }
   function overview(){
     var names = allCustomers();
     var list = names.map(function(n){ var s=customerSummary(n); return {name:n, s:s}; });
-    list = list.filter(function(x){ return x.s.totalDebt>0 || x.s.totalPaid>0 || x.s.repay>0; });
+    list = list.filter(function(x){ return x.s.totalDebt>0 || x.s.totalPaid>0 || x.s.refund>0; });
     list.sort(function(a,b){ return (b.s.remaining-a.s.remaining) || a.name.localeCompare(b.name,"zh"); });
     var debtCustomers = list.filter(function(x){ return x.s.remaining>0; }).length;
-    var totalDebt=0, totalPaid=0, totalRemaining=0;
-    list.forEach(function(x){ totalDebt+=x.s.totalDebt; totalPaid+=x.s.totalPaid; if(x.s.remaining>0) totalRemaining+=x.s.remaining; });
-    return { list:list, debtCustomers:debtCustomers, totalDebt:round2(totalDebt), totalPaid:round2(totalPaid), totalRemaining:round2(totalRemaining) };
+    var totalDebt=0, totalPaid=0, totalRefund=0, totalRemaining=0;
+    list.forEach(function(x){ totalDebt+=x.s.totalDebt; totalPaid+=x.s.totalPaid; totalRefund+=x.s.refund; if(x.s.remaining>0) totalRemaining+=x.s.remaining; });
+    return { list:list, debtCustomers:debtCustomers, totalDebt:round2(totalDebt), totalPaid:round2(totalPaid), totalRefund:round2(totalRefund), totalRemaining:round2(totalRemaining) };
   }
 
   // ---------- 渲染 ----------
@@ -523,10 +687,35 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }
     return mid+' · 已付 '+fmtMoney(o.paid);
   }
+  function returnSummary(t){
+    var items = (t.items && t.items.length) ? t.items : [];
+    var codes = items.map(function(it){ return it.itemCode; }).filter(Boolean);
+    var n = items.length;
+    if(n<=1){
+      var it = items[0] || {};
+      return (it.itemCode?'货号 '+esc(it.itemCode)+' · ':'')+'单价 '+fmtMoney(it.price)+' × '+fmtQty(it.qty)+' = <b>'+fmtMoney(t.total)+'</b>';
+    }
+    return n+' 种货'+(codes.length? ' · '+codes.map(esc).join('、') : '')+' · 退货总额 <b>'+fmtMoney(t.total)+'</b>';
+  }
+  var LIST_PREFIX = { owe:"o", pay:"r", ret:"t" };
+  function matchFilter(rec, name, from, to){
+    if(name && (rec.customer||"").indexOf(name) < 0) return false;
+    if((from || to) && !inDateRange(rec.date, from, to)) return false;
+    return true;
+  }
+  function listFilter(kind){
+    var p = LIST_PREFIX[kind];
+    var name = el(p+"FilterName").value.trim();
+    var from = el(p+"FilterFrom").value, to = el(p+"FilterTo").value;
+    return { name:name, from:from, to:to, active: !!(name || from || to) };
+  }
   function renderOrderList(){
-    var list = data.orders.slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); }).slice(0,30);
+    var f = listFilter("owe");
+    var list = data.orders.filter(function(o){ return matchFilter(o, f.name, f.from, f.to); })
+      .sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+    if(!f.active) list = list.slice(0, 30);
     var box = el("orderList");
-    if(list.length===0){ box.innerHTML = '<div class="empty">还没有订单，先记一笔吧</div>'; return; }
+    if(list.length===0){ box.innerHTML = '<div class="empty">'+(f.active ? "没有符合条件的订单" : "还没有订单，先记一笔吧")+'</div>'; return; }
     box.innerHTML = list.map(function(o){
       return '<div class="item">'+
         '<div class="top"><span class="name">'+esc(o.customer)+'</span><span class="date">'+esc(o.date)+'</span></div>'+
@@ -538,9 +727,12 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
 
   function renderRepayList(){
-    var list = data.repayments.slice().sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); }).slice(0,30);
+    var f = listFilter("pay");
+    var list = data.repayments.filter(function(r){ return matchFilter(r, f.name, f.from, f.to); })
+      .sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+    if(!f.active) list = list.slice(0, 30);
     var box = el("repayList");
-    if(list.length===0){ box.innerHTML = '<div class="empty">还没有还款记录</div>'; return; }
+    if(list.length===0){ box.innerHTML = '<div class="empty">'+(f.active ? "没有符合条件的还款" : "还没有还款记录")+'</div>'; return; }
     box.innerHTML = list.map(function(r){
       return '<div class="item">'+
         '<div class="top"><span class="name">'+esc(r.customer)+'</span><span class="date">'+esc(r.date)+'</span></div>'+
@@ -551,15 +743,34 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }).join("");
   }
 
+  function renderReturnList(){
+    var f = listFilter("ret");
+    var list = data.returns.filter(function(t){ return matchFilter(t, f.name, f.from, f.to); })
+      .sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+    if(!f.active) list = list.slice(0, 30);
+    var box = el("returnList");
+    if(list.length===0){ box.innerHTML = '<div class="empty">'+(f.active ? "没有符合条件的退货" : "还没有退货记录")+'</div>'; return; }
+    box.innerHTML = list.map(function(t){
+      return '<div class="item">'+
+        '<div class="top"><span class="name">'+esc(t.customer)+'</span><span class="date">'+esc(t.date)+'</span></div>'+
+        '<div class="mid">'+returnSummary(t)+'</div>'+
+        (t.note ? '<div class="mid">'+esc(t.note)+'</div>' : '')+
+        '<div class="ops"><button class="op-btn" data-edit-t="'+t.id+'">编辑</button><button class="op-btn del" data-del-t="'+t.id+'">删除</button></div>'+
+        '</div>';
+    }).join("");
+  }
+
   function renderOverview(){
     var ov = overview();
     el("stat-customers").textContent = ov.debtCustomers;
     el("stat-debt").textContent = fmtMoney(ov.totalDebt);
     el("stat-paid").textContent = fmtMoney(ov.totalPaid);
+    el("stat-refund").textContent = fmtMoney(ov.totalRefund);
     var remEl = el("stat-remaining");
     remEl.textContent = fmtMoney(ov.totalRemaining);
     remEl.className = "num" + (ov.totalRemaining>0 ? " neg" : " pos");
     renderCustomerList();
+    renderDateList();
   }
 
   function renderCustomerList(){
@@ -570,7 +781,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     if(q){ list = list.filter(function(x){ return x.name.indexOf(q)>=0; }); }
     if(list.length===0){
       var emptyMsg = q ? "没有找到「"+esc(q)+"」这个客户"
-        : (data.orders.length===0 && data.repayments.length===0)
+        : (data.orders.length===0 && data.repayments.length===0 && data.returns.length===0)
           ? "还没有账本数据。如有之前的 Excel 账本，请点上方「导入 Excel」恢复"
           : "暂无客户数据";
       box.innerHTML = '<div class="empty">'+emptyMsg+'</div>';
@@ -582,8 +793,43 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       var balTxt = s.remaining>0 ? fmtMoney(s.remaining) : "已还清";
       return '<div class="cust" data-name="'+esc(x.name)+'">'+
         '<div class="top"><span class="name">'+esc(x.name)+'</span><span class="'+balCls+'">'+balTxt+'</span></div>'+
-        '<div class="sub">欠 '+fmtMoney(s.totalDebt)+' · 已还 '+fmtMoney(s.totalPaid)+'</div>'+
+        '<div class="sub">欠 '+fmtMoney(s.totalDebt)+' · 已还 '+fmtMoney(s.totalPaid)+(s.refund>0 ? ' · 退货 '+fmtMoney(s.refund) : '')+'</div>'+
         '</div>';
+    }).join("");
+  }
+
+  function inDateRange(date, from, to){
+    if(!date) return false;
+    if(from && date < from) return false;
+    if(to && date > to) return false;
+    return true;
+  }
+  function dateRangeRows(from, to){
+    var rows = [];
+    data.orders.forEach(function(o){ if(inDateRange(o.date,from,to)) rows.push({kind:"owe",date:o.date,id:o.id,rec:o}); });
+    data.repayments.forEach(function(r){ if(inDateRange(r.date,from,to)) rows.push({kind:"pay",date:r.date,id:r.id,rec:r}); });
+    data.returns.forEach(function(t){ if(inDateRange(t.date,from,to)) rows.push({kind:"ret",date:t.date,id:t.id,rec:t}); });
+    rows.sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
+    return rows;
+  }
+  function renderDateList(){
+    var box = el("dateList");
+    var from = el("dateFrom").value, to = el("dateTo").value;
+    if(!from && !to){ box.innerHTML = '<div class="empty">选择开始/结束日期，或点上面的快捷按钮，查询这段时间的每一笔记录</div>'; return; }
+    var rows = dateRangeRows(from, to);
+    if(rows.length===0){ box.innerHTML = '<div class="empty">这段时间没有记录</div>'; return; }
+    box.innerHTML = '<div class="list-title" style="margin-top:0">共 '+rows.length+' 笔</div>' + rows.map(function(r){
+      var tag, mid;
+      if(r.kind==="owe"){ tag='<span class="tag owe">欠</span>'; mid=orderSummary(r.rec); }
+      else if(r.kind==="pay"){ tag='<span class="tag pay">还</span>'; mid='还款 <b>'+fmtMoney(r.rec.amount)+'</b> 元'+(r.rec.note?' · '+esc(r.rec.note):''); }
+      else { tag='<span class="tag ret">退</span>'; mid=returnSummary(r.rec); }
+      return '<div class="item">'+
+        '<div class="top"><span class="name">'+tag+esc(r.rec.customer)+'</span><span class="date">'+esc(r.date)+'</span></div>'+
+        '<div class="mid">'+mid+'</div>'+
+        '<div class="ops">'+
+          '<button class="op-btn" data-act="edit" data-kind="'+r.kind+'" data-id="'+esc(r.id)+'">编辑</button>'+
+          '<button class="op-btn del" data-act="del" data-kind="'+r.kind+'" data-id="'+esc(r.id)+'">删除</button>'+
+        '</div></div>';
     }).join("");
   }
 
@@ -591,6 +837,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     refreshDatalists();
     renderOrderList();
     renderRepayList();
+    renderReturnList();
     renderOverview();
   }
 
@@ -599,11 +846,12 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     var s = customerSummary(name);
     var orders = data.orders.filter(function(o){ return o.customer===name; }).sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
     var repays = data.repayments.filter(function(r){ return r.customer===name; }).sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
+    var returns = data.returns.filter(function(t){ return t.customer===name; }).sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
     el("modalName").textContent = name;
     var remEl = el("modalRemaining");
     remEl.textContent = s.remaining>0 ? ("¥ " + fmtMoney(s.remaining)) : "已还清";
     remEl.className = "num" + (s.remaining>0 ? " neg" : " pos");
-    el("modalSumline").textContent = "欠款总额 ¥"+fmtMoney(s.totalDebt)+" · 已还总额 ¥"+fmtMoney(s.totalPaid)+"（含首付 ¥"+fmtMoney(s.orderPaid)+" + 后续还款 ¥"+fmtMoney(s.repay)+"）";
+    el("modalSumline").textContent = "欠款总额 ¥"+fmtMoney(s.totalDebt)+" · 已还总额 ¥"+fmtMoney(s.totalPaid)+"（含首付 ¥"+fmtMoney(s.orderPaid)+" + 后续还款 ¥"+fmtMoney(s.repay)+"）"+(s.refund>0 ? " · 退货总额 ¥"+fmtMoney(s.refund) : "");
 
     if(orders.length===0){
       el("modalOrders").innerHTML = '<div class="empty">无欠款订单</div>';
@@ -630,9 +878,25 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       rh += '</tbody></table>';
       el("modalRepays").innerHTML = rh;
     }
+
+    if(returns.length===0){
+      el("modalReturns").innerHTML = '<div class="empty">无退货记录</div>';
+    } else {
+      var th = '<table class="mini-table"><thead><tr><th>日期</th><th>货号明细</th><th class="num">退货额</th></tr></thead><tbody>';
+      th += returns.map(function(t){
+        var items = (t.items && t.items.length) ? t.items : [];
+        var detail = items.map(function(it){
+          return esc(it.itemCode||"（无货号）")+'：单价 '+fmtMoney(it.price)+' × '+fmtQty(it.qty)+' = '+fmtMoney(it.subtotal);
+        }).join('<br>');
+        return '<tr><td>'+esc(t.date)+'</td><td>'+detail+'</td><td class="num">'+fmtMoney(t.total)+'</td></tr>';
+      }).join("");
+      th += '</tbody></table>';
+      el("modalReturns").innerHTML = th;
+    }
     el("modal").classList.add("open");
+    billCustomer = name;
   }
-  function closeModal(){ el("modal").classList.remove("open"); }
+  function closeModal(){ el("modal").classList.remove("open"); billCustomer = null; }
 
   // ---------- 表单：订单 ----------
   function itemRowHTML(item){
@@ -649,17 +913,17 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       '</div>'+
     '</div>';
   }
-  function renderItemRows(items){
+  function renderItemRows(items, boxId, totalId){
     var list = (items && items.length) ? items : [null];
-    el("orderItems").innerHTML = list.map(itemRowHTML).join("");
-    updateTotal();
+    el(boxId).innerHTML = list.map(itemRowHTML).join("");
+    updateTotal(boxId, totalId);
   }
-  function addItemRow(){
-    el("orderItems").insertAdjacentHTML("beforeend", itemRowHTML(null));
-    updateTotal();
+  function addItemRow(boxId, totalId){
+    el(boxId).insertAdjacentHTML("beforeend", itemRowHTML(null));
+    updateTotal(boxId, totalId);
   }
-  function collectItems(){
-    var rows = el("orderItems").querySelectorAll(".item-row");
+  function collectItems(boxId){
+    var rows = el(boxId).querySelectorAll(".item-row");
     var items = [];
     for(var i=0;i<rows.length;i++){
       var r = rows[i];
@@ -672,8 +936,8 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }
     return items;
   }
-  function updateTotal(){
-    var rows = el("orderItems").querySelectorAll(".item-row");
+  function updateTotal(boxId, totalId){
+    var rows = el(boxId).querySelectorAll(".item-row");
     var sum = 0;
     for(var i=0;i<rows.length;i++){
       var r = rows[i];
@@ -681,7 +945,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       r.querySelector(".sub").textContent = fmtMoney(sub);
       sum += sub;
     }
-    el("oTotalDisplay").textContent = fmtMoney(round2(sum));
+    el(totalId).textContent = fmtMoney(round2(sum));
   }
   function setOrderEditMode(o){
     editingOrderId = o ? o.id : null;
@@ -693,14 +957,14 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       el("oDate").value = o.date||todayStr();
       el("oPaid").value = o.paid;
       el("oNote").value = o.note||"";
-      renderItemRows(o.items);
+      renderItemRows(o.items, "orderItems", "oTotalDisplay");
     }
   }
   function onOrderSubmit(e){
     e.preventDefault();
     var customer = el("oCustomer").value.trim();
     if(!customer){ alert("请填写客户名称"); return; }
-    var items = collectItems();
+    var items = collectItems("orderItems");
     if(items === null) return;
     if(items.length === 0){ alert("请至少填写一个货号的单价和数量"); return; }
     var total = round2(items.reduce(function(s,it){ return s+it.subtotal; },0));
@@ -723,7 +987,336 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     el("orderForm").reset();
     el("oDate").value = todayStr();
     el("oPaid").value = "0";
-    renderItemRows(null);
+    renderItemRows(null, "orderItems", "oTotalDisplay");
+  }
+
+  // ---------- 表单：退货 ----------
+  function setReturnEditMode(t){
+    editingReturnId = t ? t.id : null;
+    el("returnFormTitle").textContent = t ? "编辑退货" : "记一笔退货";
+    el("returnSaveBtn").textContent = t ? "更新退货" : "保存退货";
+    el("returnCancelBtn").style.display = t ? "block" : "none";
+    if(t){
+      el("tCustomer").value = t.customer||"";
+      el("tDate").value = t.date||todayStr();
+      el("tNote").value = t.note||"";
+      renderItemRows(t.items, "returnItems", "tTotalDisplay");
+    }
+  }
+  function onReturnSubmit(e){
+    e.preventDefault();
+    var customer = el("tCustomer").value.trim();
+    if(!customer){ alert("请填写客户名称"); return; }
+    var items = collectItems("returnItems");
+    if(items === null) return;
+    if(items.length === 0){ alert("请至少填写一个货号的单价和数量"); return; }
+    var total = round2(items.reduce(function(s,it){ return s+it.subtotal; },0));
+    var rec = { id: editingReturnId || genId("t"), customer:customer, date: el("tDate").value || todayStr(), items:items, total:total, note: el("tNote").value.trim() };
+    if(editingReturnId){
+      var i = data.returns.findIndex(function(x){ return x.id===editingReturnId; });
+      if(i>=0) data.returns[i]=rec;
+      else data.returns.push(rec);
+    } else {
+      data.returns.push(rec);
+    }
+    bumpRev();
+    afterChange();
+    setReturnEditMode(null);
+    resetReturnForm();
+    switchTab("return");
+  }
+  function resetReturnForm(){
+    el("returnForm").reset();
+    el("tDate").value = todayStr();
+    renderItemRows(null, "returnItems", "tTotalDisplay");
+  }
+
+  // ---------- 账单图 ----------
+  var billCanvas = null;
+  var BILL_W = 480;
+  var BILL_DPR = 2;
+  var BILL_PAD = 24;
+  var BILL_MAX_H = 12000;
+  var BILL_FONT = 'system-ui,-apple-system,"Microsoft YaHei",sans-serif';
+
+  function billFont(size, weight){ return (weight||"normal") + " " + size + "px " + BILL_FONT; }
+
+  function wrapText(measure, text, maxWidth){
+    text = String(text==null ? "" : text);
+    if(text === "") return [];
+    var out = [];
+    text.split("\n").forEach(function(para){
+      if(para === ""){ out.push(""); return; }
+      var cur = "";
+      for(var i=0;i<para.length;i++){
+        var t = cur + para[i];
+        if(cur && measure(t) > maxWidth){ out.push(cur); cur = para[i]; }
+        else cur = t;
+      }
+      out.push(cur);
+    });
+    return out;
+  }
+
+  function layoutBill(ctx, name){
+    var measure = function(t){ return ctx.measureText(t).width; };
+    var s = customerSummary(name);
+    var orders = data.orders.filter(function(o){ return o.customer===name; })
+      .sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
+    var repays = data.repayments.filter(function(r){ return r.customer===name; })
+      .sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
+    var returns = data.returns.filter(function(t){ return t.customer===name; })
+      .sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
+
+    var W = BILL_W, PAD = BILL_PAD, inner = W - PAD*2;
+    var items = [];
+    var y = PAD;
+
+    function text(str, opt){
+      opt = opt || {};
+      var size = opt.size || 14, weight = opt.weight || "normal";
+      var maxWidth = opt.maxWidth || inner;
+      ctx.font = billFont(size, weight);
+      var lines = wrapText(measure, str, maxWidth);
+      var lh = Math.round(size*1.4);
+      var x = opt.align === "center" ? (opt.x == null ? PAD + inner/2 : opt.x)
+            : opt.align === "right" ? (opt.x == null ? PAD + inner : opt.x)
+            : (opt.x == null ? PAD : opt.x);
+      items.push({type:"text", x:x, y:y, lines:lines, size:size, weight:weight, color:opt.color||"#0b0b0b", align:opt.align||"left", lh:lh});
+      y += lines.length*lh + (opt.gap == null ? 6 : opt.gap);
+    }
+    function rule(){
+      items.push({type:"rule", x1:PAD, x2:PAD+inner, y:y+4, color:"#e1e0d9"});
+      y += 9;
+    }
+
+    if(settings.storeName) text(settings.storeName, {size:30, weight:"bold", align:"center", gap:4});
+    text("欠款账单", {size: settings.storeName ? 15 : 24, weight: settings.storeName ? "normal" : "bold", align:"center", color: settings.storeName ? "#52514e" : "#0b0b0b", gap:16});
+
+    text("客户：" + name, {size:20, weight:"bold", gap:2});
+    text("日期：" + todayStr(), {size:13, color:"#898781", gap:16});
+
+    var bh = 72, bgap = 8, bw = Math.floor((inner - bgap*3)/4);
+    var sums = [
+      {label:"欠款总额", val:fmtMoney(s.totalDebt), color:"#0b0b0b"},
+      {label:"已还总额", val:fmtMoney(s.totalPaid), color:"#0ca30c"},
+      {label:"退货总额", val:fmtMoney(s.refund), color:"#8a6d00"},
+      {label:"未还金额", val:(s.remaining>0 ? fmtMoney(s.remaining) : "已还清"), color:(s.remaining>0 ? "#d03b3b" : "#0ca30c")}
+    ];
+    sums.forEach(function(b, i){
+      var bx = PAD + i*(bw + bgap);
+      items.push({type:"rect", x:bx, y:y, w:bw, h:bh, fill:"#f1f0ec", radius:10});
+      ctx.font = billFont(12, "normal");
+      items.push({type:"text", x:bx+bw/2, y:y+13, lines:wrapText(measure, b.label, bw-14), size:12, weight:"normal", color:"#898781", align:"center", lh:17});
+      ctx.font = billFont(15, "bold");
+      items.push({type:"text", x:bx+bw/2, y:y+38, lines:wrapText(measure, b.val, bw-14), size:15, weight:"bold", color:b.color, align:"center", lh:20});
+    });
+    y += bh + 18;
+
+    var C_DATE = 84, C_TOTAL = 74, C_PAID = 66;
+    var cDetailW = inner - C_DATE - C_TOTAL - C_PAID;
+
+    function tableHead(cols){
+      var lh = 17, maxL = 1;
+      var arr = cols.map(function(c){ ctx.font = billFont(12,"bold"); var l = wrapText(measure, c.label, c.w); if(l.length>maxL) maxL = l.length; return l; });
+      var rowH = maxL*lh + 8;
+      cols.forEach(function(c, i){
+        items.push({type:"text", x:c.x, y:y+4, lines:arr[i], size:12, weight:"bold", color:"#52514e", align:c.align||"left", lh:17});
+      });
+      y += rowH;
+      rule();
+    }
+    function tableRow(cols){
+      var lh = 17, maxL = 1;
+      var arr = cols.map(function(c){ ctx.font = billFont(12,"normal"); var l = wrapText(measure, c.text, c.w); if(l.length>maxL) maxL = l.length; return l; });
+      var rowH = maxL*lh + 10;
+      cols.forEach(function(c, i){
+        items.push({type:"text", x:c.x, y:y+5, lines:arr[i], size:12, weight:"normal", color:c.color||"#0b0b0b", align:c.align||"left", lh:17});
+      });
+      y += rowH;
+      rule();
+    }
+
+    text("欠款明细", {size:16, weight:"bold", gap:10});
+    if(orders.length === 0){
+      text("（无）", {size:13, color:"#898781", gap:10});
+    } else {
+      tableHead([
+        {label:"日期", x:PAD, w:C_DATE},
+        {label:"货号明细", x:PAD+C_DATE, w:cDetailW},
+        {label:"总额", x:PAD+C_DATE+cDetailW+C_TOTAL, w:C_TOTAL, align:"right"},
+        {label:"已付", x:PAD+inner, w:C_PAID, align:"right"}
+      ]);
+      orders.forEach(function(o){
+        var its = (o.items && o.items.length) ? o.items : [];
+        var detail = its.length ? its.map(function(it){
+          return (it.itemCode||"（无货号）") + "：" + fmtMoney(it.price) + " × " + fmtQty(it.qty) + " = " + fmtMoney(it.subtotal);
+        }).join("\n") : "（无明细）";
+        tableRow([
+          {text:o.date||"", x:PAD, w:C_DATE},
+          {text:detail, x:PAD+C_DATE, w:cDetailW},
+          {text:fmtMoney(o.total), x:PAD+C_DATE+cDetailW+C_TOTAL, w:C_TOTAL, align:"right"},
+          {text:fmtMoney(o.paid), x:PAD+inner, w:C_PAID, align:"right"}
+        ]);
+      });
+    }
+    y += 6;
+
+    text("还款明细", {size:16, weight:"bold", gap:10});
+    if(repays.length === 0){
+      text("（无）", {size:13, color:"#898781", gap:10});
+    } else {
+      var amtW = 80, noteGap = 12;
+      var xAmtEnd = PAD + C_DATE + amtW;
+      var xNote = xAmtEnd + noteGap;
+      var noteW = inner - C_DATE - amtW - noteGap;
+      tableHead([
+        {label:"日期", x:PAD, w:C_DATE},
+        {label:"金额", x:xAmtEnd, w:amtW, align:"right"},
+        {label:"备注", x:xNote, w:noteW}
+      ]);
+      repays.forEach(function(r){
+        tableRow([
+          {text:r.date||"", x:PAD, w:C_DATE},
+          {text:fmtMoney(r.amount), x:xAmtEnd, w:amtW, align:"right", color:"#0ca30c"},
+          {text:r.note||"", x:xNote, w:noteW}
+        ]);
+      });
+    }
+
+    y += 4;
+    text("退货明细", {size:16, weight:"bold", gap:10});
+    if(returns.length === 0){
+      text("（无）", {size:13, color:"#898781", gap:10});
+    } else {
+      var rTotW = 74;
+      var rDetailW = inner - C_DATE - rTotW;
+      tableHead([
+        {label:"日期", x:PAD, w:C_DATE},
+        {label:"货号明细", x:PAD+C_DATE, w:rDetailW},
+        {label:"退货额", x:PAD+inner, w:rTotW, align:"right"}
+      ]);
+      returns.forEach(function(t){
+        var its = (t.items && t.items.length) ? t.items : [];
+        var detail = its.length ? its.map(function(it){
+          return (it.itemCode||"（无货号）") + "：" + fmtMoney(it.price) + " × " + fmtQty(it.qty) + " = " + fmtMoney(it.subtotal);
+        }).join("\n") : "（无明细）";
+        tableRow([
+          {text:t.date||"", x:PAD, w:C_DATE},
+          {text:detail, x:PAD+C_DATE, w:rDetailW},
+          {text:fmtMoney(t.total), x:PAD+inner, w:rTotW, align:"right", color:"#8a6d00"}
+        ]);
+      });
+    }
+
+    y += 4;
+    text("本账单由「欠款记账」生成 · " + todayStr(), {size:11, color:"#898781", align:"center", gap:4});
+
+    return { width:W, height: Math.round(y + PAD), items:items };
+  }
+
+  function roundRect(ctx, x, y, w, h, r){
+    ctx.beginPath();
+    if(!r){ ctx.rect(x, y, w, h); return; }
+    ctx.moveTo(x+r, y);
+    ctx.arcTo(x+w, y, x+w, y+h, r);
+    ctx.arcTo(x+w, y+h, x, y+h, r);
+    ctx.arcTo(x, y+h, x, y, r);
+    ctx.arcTo(x, y, x+w, y, r);
+    ctx.closePath();
+  }
+
+  function paintBill(canvas, plan){
+    var dpr = BILL_DPR;
+    canvas.width = Math.round(plan.width*dpr);
+    canvas.height = Math.round(plan.height*dpr);
+    var ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, plan.width, plan.height);
+    ctx.textBaseline = "top";
+    plan.items.forEach(function(it){
+      if(it.type === "rect"){
+        ctx.fillStyle = it.fill;
+        roundRect(ctx, it.x, it.y, it.w, it.h, it.radius||0);
+        ctx.fill();
+      } else if(it.type === "rule"){
+        ctx.strokeStyle = it.color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(it.x1, it.y + 0.5);
+        ctx.lineTo(it.x2, it.y + 0.5);
+        ctx.stroke();
+      } else if(it.type === "text"){
+        ctx.font = billFont(it.size, it.weight);
+        ctx.fillStyle = it.color;
+        ctx.textAlign = it.align === "center" ? "center" : (it.align === "right" ? "right" : "left");
+        for(var i=0;i<it.lines.length;i++){ ctx.fillText(it.lines[i], it.x, it.y + i*it.lh); }
+      }
+    });
+  }
+
+  function makeBillCanvas(name){
+    var mctx = document.createElement("canvas").getContext("2d");
+    var plan = layoutBill(mctx, name);
+    if(plan.height > BILL_MAX_H){
+      alert("该客户明细太多，生成的账单图过长（超过 " + BILL_MAX_H + " 像素）。请减少明细后再试。");
+      return null;
+    }
+    var canvas = document.createElement("canvas");
+    paintBill(canvas, plan);
+    return canvas;
+  }
+
+  function openBill(){
+    if(!billCustomer) return;
+    var canvas = makeBillCanvas(billCustomer);
+    if(!canvas) return;
+    billCanvas = canvas;
+    el("billImg").src = canvas.toDataURL("image/png");
+    el("billViewer").classList.add("open");
+  }
+  function closeBill(){
+    el("billViewer").classList.remove("open");
+    el("billImg").src = "";
+    billCanvas = null;
+  }
+  function billBlob(cb){
+    if(billCanvas.toBlob){ billCanvas.toBlob(cb, "image/png"); return; }
+    try{
+      var dataUrl = billCanvas.toDataURL("image/png");
+      var bin = atob(dataUrl.split(",")[1]);
+      var arr = new Uint8Array(bin.length);
+      for(var i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+      cb(new Blob([arr], {type:"image/png"}));
+    }catch(e){ alert("生成图片失败：" + e.message); }
+  }
+  function billFileName(){
+    var safe = String(billCustomer||"客户").replace(/[\\/:*?"<>|]/g, "");
+    return "账单_" + safe + "_" + todayStr() + ".png";
+  }
+  function shareBill(){
+    billBlob(function(blob){
+      var file = null;
+      try{ file = new File([blob], billFileName(), {type:"image/png"}); }catch(e){}
+      if(file && navigator.canShare && navigator.canShare({files:[file]})){
+        navigator.share({files:[file], title:"欠款账单", text:(settings.storeName ? settings.storeName + " " : "") + "欠款账单"}).catch(function(){});
+      } else {
+        alert("这个浏览器不能直接分享图片。请长按图片选择「保存到相册」，再到微信里发送。");
+      }
+    });
+  }
+  function saveBill(){
+    billBlob(function(blob){
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = billFileName();
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+    });
   }
 
   // ---------- 表单：还款 ----------
@@ -783,6 +1376,15 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     bumpRev();
     afterChange();
   }
+  function deleteReturn(id){
+    var t = data.returns.find(function(x){ return x.id===id; });
+    if(!t) return;
+    if(!confirm("确定删除「"+t.customer+"」的这笔退货？")) return;
+    data.returns = data.returns.filter(function(x){ return x.id!==id; });
+    if(editingReturnId===id) setReturnEditMode(null);
+    bumpRev();
+    afterChange();
+  }
 
   // ---------- 标签切换 ----------
   function switchTab(name){
@@ -809,14 +1411,27 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     data.repayments.slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(r){
       aoaRepays.push([r.date, r.customer, num(r.amount), r.note||""]);
     });
-    var aoaSum = [["客户名称","欠款总额","已还总额","未还金额"]];
+    var aoaSum = [["客户名称","欠款总额","已还总额","退货总额","未还金额"]];
     overview().list.forEach(function(x){
-      aoaSum.push([x.name, x.s.totalDebt, x.s.totalPaid, x.s.remaining]);
+      aoaSum.push([x.name, x.s.totalDebt, x.s.totalPaid, x.s.refund, x.s.remaining]);
+    });
+    var aoaReturns = [["日期","客户名称","退货号","货号","单价","数量","小计","备注"]];
+    data.returns.slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(t){
+      var items = (t.items && t.items.length) ? t.items : [{itemCode:"", price:0, qty:0, subtotal:0}];
+      items.forEach(function(it, idx){
+        aoaReturns.push([
+          t.date, t.customer, t.id,
+          it.itemCode||"", num(it.price), num(it.qty), num(it.subtotal),
+          idx===0 ? (t.note||"") : ""
+        ]);
+      });
     });
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaOrders), "欠款订单");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaRepays), "还款记录");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaReturns), "退货记录");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaSum), "汇总");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["项目","值"],["店名", settings.storeName||""]]), "设置");
     XLSX.writeFile(wb, (silent ? "欠款账本_"+nowStamp() : "欠款账本_"+todayStr()) + ".xlsx");
     setBackedUp();
   }
@@ -843,13 +1458,19 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     return String(v==null?"":v).trim();
   }
   function parseOrdersSheet(wb){
-    var ws = findSheet(wb, ["欠款订单","订单","欠账","欠款"]);
+    return parseItemsSheet(wb, ["欠款订单","订单","欠账","欠款"], ["订单号","订单编号","编号"], "o");
+  }
+  function parseReturnsSheet(wb){
+    return parseItemsSheet(wb, ["退货记录","退货","退货明细"], ["退货号","退货编号","编号"], "t");
+  }
+  function parseItemsSheet(wb, sheetNames, idKeys, idPrefix){
+    var ws = findSheet(wb, sheetNames);
     if(!ws) return [];
     var rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:""});
     if(rows.length < 2) return [];
     var h = rows[0];
     var cDate = colIndex(h,["日期"]), cCust = colIndex(h,["客户名称","客户","姓名"]),
-        cOrder = colIndex(h,["订单号","订单编号","编号"]),
+        cOrder = colIndex(h, idKeys),
         cItem = colIndex(h,["货号","货品编号","商品编号"]),
         cPrice = colIndex(h,["单价"]), cQty = colIndex(h,["数量"]),
         cSub = colIndex(h,["小计","小计金额"]),
@@ -860,7 +1481,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
 
     function cellStr(r, c){ return c>=0 ? String(r[c]==null?"":r[c]).trim() : ""; }
 
-    // 旧格式：没有订单号列，一行 = 一笔单货号订单
+    // 旧格式：没有单号列，一行 = 一笔单货号记录
     if(cOrder < 0){
       var out = [];
       for(var i=1;i<rows.length;i++){
@@ -871,7 +1492,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         var total = num(r[cTotal]);
         if(!total && price && qty) total = round2(price*qty);
         out.push({
-          id: genId("o"), customer:customer,
+          id: genId(idPrefix), customer:customer,
           items: [{ itemCode: cellStr(r, cItem), price: round2(price), qty: qty, subtotal: round2(price*qty) }],
           date: cDate>=0 ? cellDate(r[cDate]) : todayStr(),
           total: round2(total),
@@ -882,7 +1503,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       return out;
     }
 
-    // 新格式：按订单号分组合并多行货号
+    // 新格式：按单号分组合并多行货号
     var map = {};
     var grouped = [];
     for(var j=1;j<rows.length;j++){
@@ -892,7 +1513,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       var oid = cellStr(rr, cOrder) || ("auto_"+j);
       if(!map[oid]){
         map[oid] = {
-          id: genId("o"), customer: cust,
+          id: oid, customer: cust,
           date: cDate>=0 ? cellDate(rr[cDate]) : todayStr(),
           paid: cPaid>=0 ? round2(num(rr[cPaid])) : 0,
           note: cellStr(rr, cNote),
@@ -910,6 +1531,21 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       o.total = round2(o.items.reduce(function(s,it){ return s+it.subtotal; },0));
     });
     return grouped;
+  }
+  function parseSettingsSheet(wb){
+    var ws = findSheet(wb, ["设置","设置项"]);
+    if(!ws) return null;
+    var rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:""});
+    if(rows.length < 2) return null;
+    var h = rows[0];
+    var cKey = colIndex(h, ["项目","名称","键"]);
+    var cVal = colIndex(h, ["值","内容"]);
+    if(cKey < 0 || cVal < 0) return null;
+    for(var i=1;i<rows.length;i++){
+      var k = String(rows[i][cKey]==null?"":rows[i][cKey]).trim();
+      if(k === "店名") return String(rows[i][cVal]==null?"":rows[i][cVal]).trim();
+    }
+    return null;
   }
   function parseRepaysSheet(wb){
     var ws = findSheet(wb, ["还款记录","还款","还款明细"]);
@@ -943,15 +1579,22 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         var wb = XLSX.read(new Uint8Array(e.target.result), {type:"array", cellDates:true});
         var orders = parseOrdersSheet(wb);
         var repays = parseRepaysSheet(wb);
-        if(orders.length===0 && repays.length===0){
+        var returns = parseReturnsSheet(wb);
+        var storeName = parseSettingsSheet(wb);
+        if(orders.length===0 && repays.length===0 && returns.length===0){
           alert("没有在文件里找到有效数据。请确认工作表名称为「欠款订单」「还款记录」，且表头包含「客户名称」「日期」等列。");
           return;
         }
-        if(!confirm("将用导入的 "+orders.length+" 条订单、"+repays.length+" 条还款 覆盖当前账本，是否继续？\n（当前数据会被替换）")) return;
-        data = { orders:orders, repayments:repays, rev: (data.rev||0) + 1 };
+        if(!confirm("将用导入的 "+orders.length+" 条订单、"+repays.length+" 条还款、"+returns.length+" 条退货 覆盖当前账本，是否继续？\n（当前数据会被替换）")) return;
+        data = { orders:orders, repayments:repays, returns:returns, rev: (data.rev||0) + 1 };
         save(); renderAll();
+        if(storeName !== null){
+          settings.storeName = storeName;
+          saveSettings();
+          el("storeNameInput").value = storeName;
+        }
         setBackedUp();
-        alert("导入成功！共 "+orders.length+" 条订单、"+repays.length+" 条还款。");
+        alert("导入成功！共 "+orders.length+" 条订单、"+repays.length+" 条还款、"+returns.length+" 条退货。" + (storeName !== null ? "\n店名：" + (storeName || "（空）") : ""));
       }catch(err){
         alert("导入失败："+err.message);
       }
@@ -960,22 +1603,29 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
 
   // ---------- 事件绑定 ----------
-  el("orderItems").addEventListener("input", function(e){
-    if(e.target.classList.contains("price") || e.target.classList.contains("qty")) updateTotal();
-  });
-  el("orderItems").addEventListener("click", function(e){
-    if(!e.target.classList.contains("del")) return;
-    var row = e.target.closest(".item-row");
-    var box = el("orderItems");
-    if(box.querySelectorAll(".item-row").length > 1){ row.remove(); }
-    else { row.querySelectorAll("input").forEach(function(inp){ inp.value=""; }); }
-    updateTotal();
-  });
-  el("addItemBtn").addEventListener("click", addItemRow);
+  function bindItemRows(boxId, totalId){
+    el(boxId).addEventListener("input", function(e){
+      if(e.target.classList.contains("price") || e.target.classList.contains("qty")) updateTotal(boxId, totalId);
+    });
+    el(boxId).addEventListener("click", function(e){
+      if(!e.target.classList.contains("del")) return;
+      var row = e.target.closest(".item-row");
+      var box = el(boxId);
+      if(box.querySelectorAll(".item-row").length > 1){ row.remove(); }
+      else { row.querySelectorAll("input").forEach(function(inp){ inp.value=""; }); }
+      updateTotal(boxId, totalId);
+    });
+  }
+  bindItemRows("orderItems", "oTotalDisplay");
+  bindItemRows("returnItems", "tTotalDisplay");
+  el("addItemBtn").addEventListener("click", function(){ addItemRow("orderItems", "oTotalDisplay"); });
+  el("addReturnItemBtn").addEventListener("click", function(){ addItemRow("returnItems", "tTotalDisplay"); });
   el("orderForm").addEventListener("submit", onOrderSubmit);
   el("repayForm").addEventListener("submit", onRepaySubmit);
+  el("returnForm").addEventListener("submit", onReturnSubmit);
   el("orderCancelBtn").addEventListener("click", function(){ setOrderEditMode(null); resetOrderForm(); });
   el("repayCancelBtn").addEventListener("click", function(){ setRepayEditMode(null); resetRepayForm(); });
+  el("returnCancelBtn").addEventListener("click", function(){ setReturnEditMode(null); resetReturnForm(); });
 
   el("orderList").addEventListener("click", function(e){
     var t = e.target.closest("[data-edit],[data-del]");
@@ -989,18 +1639,73 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     if(t.dataset.editR) setRepayEditMode(data.repayments.find(function(x){ return x.id===t.dataset.editR; }));
     if(t.dataset.delR) deleteRepay(t.dataset.delR);
   });
+  el("returnList").addEventListener("click", function(e){
+    var t = e.target.closest("[data-edit-t],[data-del-t]");
+    if(!t) return;
+    if(t.dataset.editT) setReturnEditMode(data.returns.find(function(x){ return x.id===t.dataset.editT; }));
+    if(t.dataset.delT) deleteReturn(t.dataset.delT);
+  });
 
   el("customerList").addEventListener("click", function(e){
     var t = e.target.closest(".cust");
     if(t && t.dataset.name) openCustomer(t.dataset.name);
   });
   el("searchInput").addEventListener("input", renderCustomerList);
+
+  function renderListByPrefix(p){
+    if(p==="o") renderOrderList();
+    else if(p==="r") renderRepayList();
+    else renderReturnList();
+  }
+  function setListRange(p, from, to){
+    el(p+"FilterFrom").value = from;
+    el(p+"FilterTo").value = to;
+    renderListByPrefix(p);
+  }
+  ["o","r","t"].forEach(function(p){
+    el(p+"FilterName").addEventListener("input", function(){ renderListByPrefix(p); });
+    el(p+"FilterFrom").addEventListener("change", function(){ renderListByPrefix(p); });
+    el(p+"FilterTo").addEventListener("change", function(){ renderListByPrefix(p); });
+    el(p+"FilterToday").addEventListener("click", function(){ setListRange(p, todayStr(), todayStr()); });
+    el(p+"FilterWeek").addEventListener("click", function(){ setListRange(p, shiftToday(-6), todayStr()); });
+    el(p+"FilterMonth").addEventListener("click", function(){ setListRange(p, monthStart(), todayStr()); });
+    el(p+"FilterClear").addEventListener("click", function(){
+      el(p+"FilterName").value = "";
+      setListRange(p, "", "");
+    });
+  });
+
+  el("dateFrom").addEventListener("change", renderDateList);
+  el("dateTo").addEventListener("change", renderDateList);
+  function setRange(from, to){ el("dateFrom").value = from; el("dateTo").value = to; renderDateList(); }
+  el("quickToday").addEventListener("click", function(){ setRange(todayStr(), todayStr()); });
+  el("quickWeek").addEventListener("click", function(){ setRange(shiftToday(-6), todayStr()); });
+  el("quickMonth").addEventListener("click", function(){ setRange(monthStart(), todayStr()); });
+  el("quickClear").addEventListener("click", function(){ setRange("", ""); });
+  el("dateList").addEventListener("click", function(e){
+    var b = e.target.closest("button[data-act]");
+    if(!b) return;
+    var kind = b.dataset.kind, id = b.dataset.id;
+    if(b.dataset.act==="edit"){
+      if(kind==="owe"){ setOrderEditMode(data.orders.find(function(x){ return x.id===id; })); switchTab("order"); }
+      else if(kind==="pay"){ setRepayEditMode(data.repayments.find(function(x){ return x.id===id; })); switchTab("repay"); }
+      else { setReturnEditMode(data.returns.find(function(x){ return x.id===id; })); switchTab("return"); }
+    } else {
+      if(kind==="owe") deleteOrder(id);
+      else if(kind==="pay") deleteRepay(id);
+      else deleteReturn(id);
+    }
+  });
   el("btnExport").addEventListener("click", exportExcel);
   el("btnImport").addEventListener("click", function(){ el("importInput").click(); });
   el("autoBackupToggle").addEventListener("change", function(){
     settings.autoBackup = el("autoBackupToggle").checked;
     saveSettings();
     updateBackupUI();
+  });
+  el("storeNameInput").addEventListener("change", function(){
+    settings.storeName = el("storeNameInput").value.trim();
+    saveSettings();
   });
   el("importInput").addEventListener("change", function(e){
     if(e.target.files && e.target.files[0]) importExcel(e.target.files[0]);
@@ -1012,11 +1717,18 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   });
   el("modalClose").addEventListener("click", closeModal);
   el("modal").addEventListener("click", function(e){ if(e.target===el("modal")) closeModal(); });
+  el("btnBill").addEventListener("click", openBill);
+  el("billShare").addEventListener("click", shareBill);
+  el("billSave").addEventListener("click", saveBill);
+  el("billClose").addEventListener("click", closeBill);
+  el("billViewer").addEventListener("click", function(e){ if(e.target === el("billViewer")) closeBill(); });
 
   // ---------- 初始化 ----------
   el("autoBackupToggle").checked = settings.autoBackup;
+  el("storeNameInput").value = settings.storeName || "";
   resetOrderForm();
   resetRepayForm();
+  resetReturnForm();
   renderAll();
   updateBackupUI();
 })();
