@@ -136,6 +136,18 @@
   .stat .num.neg{ color:var(--neg); }
   .stat .num.pos{ color:var(--pos); }
   .stat .lbl{ font-size:12px; color:var(--muted); margin-top:2px; }
+  .stat .mom-line{ margin-top:7px; font-size:12px; font-variant-numeric:tabular-nums; }
+  .mom{ font-weight:700; }
+  .mom.good{ color:var(--pos); }
+  .mom.bad{ color:var(--neg); }
+  .mom.flat{ color:var(--muted); font-weight:600; }
+  .mom-hint{ color:var(--muted); margin-left:4px; }
+
+  .month-bar{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .month-bar .btn{ width:auto; flex:none; padding:8px 12px; font-size:13px; }
+  .month-bar .btn:disabled{ opacity:.4; }
+  .month-label{ font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .month-note{ font-size:12px; color:var(--muted); line-height:1.5; margin:-2px 0 16px; }
 
   .search-row{ margin-bottom:12px; }
   .search-row input{
@@ -163,10 +175,14 @@
   }
   .modal.open{ display:flex; }
   .modal .sheet{
-    background:var(--bg); width:100%; max-width:720px; max-height:88vh; overflow:auto;
-    border-radius:18px 18px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+    background:var(--bg); width:100%; max-width:720px; max-height:88vh; min-height:0;
+    display:flex; flex-direction:column; overflow:hidden;
+    border-radius:18px 18px 0 0;
   }
-  .modal .sheet h3{ margin:0; font-size:18px; font-weight:800; }
+  .modal .sheet-head{ flex:none; position:relative; padding:18px 16px 0; border-bottom:1px solid var(--line); }
+  .modal .sheet-body{ flex:1; min-height:0; overflow:auto; padding:0 16px 14px; -webkit-overflow-scrolling:touch; }
+  .modal .sheet-foot{ flex:none; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); }
+  .modal .sheet-head h3{ margin:0; font-size:18px; font-weight:800; padding-right:40px; }
   .modal .hero{ margin:12px 0 4px; }
   .modal .hero .num{ font-size:28px; font-weight:800; font-variant-numeric:tabular-nums; }
   .modal .hero .num.neg{ color:var(--neg); }
@@ -174,7 +190,8 @@
   .modal .hero .lbl{ font-size:12px; color:var(--muted); }
   .modal .sumline{ font-size:13px; color:var(--ink2); margin-bottom:12px; font-variant-numeric:tabular-nums; }
   .close-x{
-    position:sticky; top:0; float:right; border:1px solid var(--border); background:var(--surface);
+    position:absolute; top:14px; right:14px; z-index:1;
+    border:1px solid var(--border); background:var(--surface);
     color:var(--ink2); width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer;
   }
   .mini-table{ width:100%; border-collapse:collapse; font-size:13px; }
@@ -183,6 +200,7 @@
   .mini-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
   .mini-table th.num{ text-align:right; }
   .subhead{ font-size:13px; font-weight:700; margin:14px 0 6px; color:var(--ink2); }
+  .more-btn{ margin-top:10px; }
 
   .backup-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
   .backup-title{ font-size:14px; font-weight:700; }
@@ -393,7 +411,7 @@
       <div id="returnList"></div>
     </section>
 
-    <!-- 总览 / 查询 -->
+    <!-- 账单总览 -->
     <section id="tab-overview" class="tab-panel">
       <div class="stats">
         <div class="stat"><div class="num" id="stat-customers">0</div><div class="lbl">欠款客户</div></div>
@@ -402,6 +420,28 @@
         <div class="stat"><div class="num" id="stat-remaining">0.00</div><div class="lbl">总未还（元）</div></div>
         <div class="stat"><div class="num" id="stat-refund">0.00</div><div class="lbl">总退货（元）</div></div>
       </div>
+
+      <div class="list-title">① 按客户查账单</div>
+      <div class="search-row">
+        <input id="searchInput" type="search" placeholder="输入客户名称，查询他的账单…">
+      </div>
+      <div id="customerList"></div>
+
+      <div class="list-title">② 按月看经营</div>
+      <div class="card">
+        <div class="month-bar">
+          <button type="button" class="btn ghost" id="monthPrev">‹ 上月</button>
+          <span class="month-label" id="monthLabel">—</span>
+          <button type="button" class="btn ghost" id="monthNext">下月 ›</button>
+        </div>
+      </div>
+      <div class="stats" id="monthStats"></div>
+      <div class="month-note">
+        欠款总额 = 本月订单总额 − 本月已付（这个月赊出去了多少）。每格下面那一行是跟上个月比：▲ 涨 / ▼ 降，
+        绿色表示「往好的方向」（订单、还款变多是绿；欠款、退货变多是红）。
+      </div>
+
+      <div class="list-title">备份与导出</div>
       <div class="card">
         <div class="backup-row">
           <div>
@@ -425,24 +465,6 @@
         <button class="btn" id="btnExport">导出 Excel</button>
         <button class="btn ghost" id="btnImport">导入 Excel</button>
       </div>
-      <div class="search-row">
-        <input id="searchInput" type="search" placeholder="输入客户名称，查询欠款与还款明细…">
-      </div>
-      <div id="customerList"></div>
-      <div class="list-title">按日期查询</div>
-      <div class="card">
-        <div class="row2">
-          <div class="field"><label for="dateFrom">开始日期</label><input id="dateFrom" type="date"></div>
-          <div class="field"><label for="dateTo">结束日期</label><input id="dateTo" type="date"></div>
-        </div>
-        <div class="toolbar" style="margin-bottom:0">
-          <button type="button" class="btn ghost" id="quickToday">今天</button>
-          <button type="button" class="btn ghost" id="quickWeek">近7天</button>
-          <button type="button" class="btn ghost" id="quickMonth">本月</button>
-          <button type="button" class="btn ghost" id="quickClear">清除</button>
-        </div>
-      </div>
-      <div id="dateList"></div>
     </section>
   </main>
 
@@ -450,27 +472,31 @@
     <button class="nav-btn active" data-tab="order"><span class="ico">✎</span>记账</button>
     <button class="nav-btn" data-tab="repay"><span class="ico">¥</span>还款</button>
     <button class="nav-btn" data-tab="return"><span class="ico">↩</span>退货</button>
-    <button class="nav-btn" data-tab="overview"><span class="ico">▤</span>总览<span class="nav-dot" id="navDot"></span></button>
+    <button class="nav-btn" data-tab="overview"><span class="ico">▤</span>账单总览<span class="nav-dot" id="navDot"></span></button>
   </nav>
 </div>
 
 <!-- 客户详情弹窗 -->
 <div class="modal" id="modal">
   <div class="sheet">
-    <button class="close-x" id="modalClose">✕</button>
-    <h3 id="modalName"></h3>
-    <div class="hero">
-      <div class="num" id="modalRemaining"></div>
-      <div class="lbl">当前未还金额</div>
+    <div class="sheet-head">
+      <button class="close-x" id="modalClose">✕</button>
+      <h3 id="modalName"></h3>
+      <div class="hero">
+        <div class="num" id="modalRemaining"></div>
+        <div class="lbl">当前未还金额</div>
+      </div>
+      <div class="sumline" id="modalSumline"></div>
     </div>
-    <div class="sumline" id="modalSumline"></div>
-    <div class="subhead">欠款明细</div>
-    <div id="modalOrders"></div>
-    <div class="subhead">还款明细</div>
-    <div id="modalRepays"></div>
-    <div class="subhead">退货明细</div>
-    <div id="modalReturns"></div>
-    <div class="btn-row" style="margin-top:16px">
+    <div class="sheet-body" id="modalBody">
+      <div class="subhead">欠款明细</div>
+      <div id="modalOrders"></div>
+      <div class="subhead">还款明细</div>
+      <div id="modalRepays"></div>
+      <div class="subhead">退货明细</div>
+      <div id="modalReturns"></div>
+    </div>
+    <div class="sheet-foot">
       <button class="btn" id="btnBill">📷 生成账单图</button>
     </div>
   </div>
@@ -531,6 +557,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   var editingRepayId = null;
   var editingReturnId = null;
   var billCustomer = null;
+  var curMonth = null;   // 按月看经营选中的月份 "YYYY-MM"
 
   // ---------- 工具函数 ----------
   function todayStr(){
@@ -788,7 +815,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     remEl.textContent = fmtMoney(ov.totalRemaining);
     remEl.className = "num" + (ov.totalRemaining>0 ? " neg" : " pos");
     renderCustomerList();
-    renderDateList();
+    renderMonthStats();
   }
 
   function renderCustomerList(){
@@ -822,33 +849,55 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     if(to && date > to) return false;
     return true;
   }
-  function dateRangeRows(from, to){
-    var rows = [];
-    data.orders.forEach(function(o){ if(inDateRange(o.date,from,to)) rows.push({kind:"owe",date:o.date,id:o.id,rec:o}); });
-    data.repayments.forEach(function(r){ if(inDateRange(r.date,from,to)) rows.push({kind:"pay",date:r.date,id:r.id,rec:r}); });
-    data.returns.forEach(function(t){ if(inDateRange(t.date,from,to)) rows.push({kind:"ret",date:t.date,id:t.id,rec:t}); });
-    rows.sort(function(a,b){ return (b.date||"").localeCompare(a.date||""); });
-    return rows;
+  // ---------- 按月看经营 ----------
+  function thisMonthKey(){ return todayStr().slice(0,7); }
+  function monthKeyOf(date){ return (date||"").slice(0,7); }
+  function shiftMonth(key, delta){
+    var y = parseInt(key.slice(0,4),10), m = parseInt(key.slice(5,7),10) - 1 + delta;
+    y += Math.floor(m/12); m = ((m%12)+12)%12;
+    return y + "-" + pad(m+1);
   }
-  function renderDateList(){
-    var box = el("dateList");
-    var from = el("dateFrom").value, to = el("dateTo").value;
-    if(!from && !to){ box.innerHTML = '<div class="empty">选择开始/结束日期，或点上面的快捷按钮，查询这段时间的每一笔记录</div>'; return; }
-    var rows = dateRangeRows(from, to);
-    if(rows.length===0){ box.innerHTML = '<div class="empty">这段时间没有记录</div>'; return; }
-    box.innerHTML = '<div class="list-title" style="margin-top:0">共 '+rows.length+' 笔</div>' + rows.map(function(r){
-      var tag, mid;
-      if(r.kind==="owe"){ tag='<span class="tag owe">欠</span>'; mid=orderSummary(r.rec); }
-      else if(r.kind==="pay"){ tag='<span class="tag pay">还</span>'; mid='还款 <b>'+fmtMoney(r.rec.amount)+'</b> 元'+(r.rec.note?' · '+esc(r.rec.note):''); }
-      else { tag='<span class="tag ret">退</span>'; mid=returnSummary(r.rec); }
-      return '<div class="item">'+
-        '<div class="top"><span class="name">'+tag+esc(r.rec.customer)+'</span><span class="date">'+esc(r.date)+'</span></div>'+
-        '<div class="mid">'+mid+'</div>'+
-        '<div class="ops">'+
-          '<button class="op-btn" data-act="edit" data-kind="'+r.kind+'" data-id="'+esc(r.id)+'">编辑</button>'+
-          '<button class="op-btn del" data-act="del" data-kind="'+r.kind+'" data-id="'+esc(r.id)+'">删除</button>'+
-        '</div></div>';
-    }).join("");
+  function monthLabel(key){
+    return parseInt(key.slice(0,4),10) + "年" + parseInt(key.slice(5,7),10) + "月";
+  }
+  function monthStats(key){
+    var orderTotal=0, orderPaid=0, repayTotal=0, refundTotal=0;
+    data.orders.forEach(function(o){ if(monthKeyOf(o.date)===key){ orderTotal+=num(o.total); orderPaid+=num(o.paid); } });
+    data.repayments.forEach(function(r){ if(monthKeyOf(r.date)===key){ repayTotal+=num(r.amount); } });
+    data.returns.forEach(function(t){ if(monthKeyOf(t.date)===key){ refundTotal+=num(t.total); } });
+    orderTotal = round2(orderTotal); orderPaid = round2(orderPaid);
+    // 欠款总额 = 本月订单总额 − 本月已付（这个月赊出去的）
+    return { order:orderTotal, debt:round2(orderTotal-orderPaid), repay:round2(repayTotal), refund:round2(refundTotal) };
+  }
+  // 环比上一月。upGood：涨是好事吗（订单、还款是；欠款、退货不是）
+  function momHTML(cur, prev, upGood){
+    if(prev === 0){
+      return '<div class="mom-line"><span class="mom flat">'+
+        (cur === 0 ? "和上月比 —" : (cur > 0 ? "上月为 0，本月新增" : "上月为 0，本月减少"))+'</span></div>';
+    }
+    var up = cur > prev;
+    // 用 |上月| 做分母：上月为负（如某月已付多于订单）时方向也不会反
+    var pct = round2((cur-prev)/Math.abs(prev)*100);
+    if(pct === 0) return '<div class="mom-line"><span class="mom flat">和上月持平</span></div>';
+    return '<div class="mom-line"><span class="mom '+((up===upGood)?"good":"bad")+'">'+
+      (up ? "▲" : "▼") + " " + fmtMoney(Math.abs(pct)) + '%</span>'+
+      '<span class="mom-hint">比上月</span></div>';
+  }
+  function monthTileHTML(label, value, mom){
+    return '<div class="stat"><div class="num">'+fmtMoney(value)+'</div>'+
+      '<div class="lbl">'+label+'（元）</div>'+mom+'</div>';
+  }
+  function renderMonthStats(){
+    if(!curMonth || curMonth > thisMonthKey()) curMonth = thisMonthKey();
+    var key = curMonth, prev = shiftMonth(key, -1);
+    el("monthLabel").textContent = monthLabel(key);
+    el("monthNext").disabled = (key >= thisMonthKey());
+    var a = monthStats(key), b = monthStats(prev);
+    el("monthStats").innerHTML =
+      monthTileHTML("订单总额", a.order, momHTML(a.order, b.order, true)) +
+      monthTileHTML("欠款总额", a.debt, momHTML(a.debt, b.debt, false)) +
+      monthTileHTML("还款总额", a.repay, momHTML(a.repay, b.repay, true)) +
+      monthTileHTML("退货总额", a.refund, momHTML(a.refund, b.refund, false));
   }
 
   function renderAll(){
@@ -860,57 +909,59 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
 
   // ---------- 弹窗 ----------
+  var MODAL_PAGE = 20;
+  var modalExpanded = { o:false, r:false, t:false };
+  function modalItemDetail(items){
+    return (items || []).map(function(it){
+      return esc(it.itemCode||"（无货号）")+'：单价 '+fmtMoney(it.price)+' × '+fmtQty(it.qty)+' = '+fmtMoney(it.subtotal);
+    }).join('<br>');
+  }
+  function renderModalTable(boxId, kind, rows, emptyText, thead, rowHTML){
+    var box = el(boxId);
+    if(rows.length===0){ box.innerHTML = '<div class="empty">'+emptyText+'</div>'; return; }
+    // rows 已按日期倒序，取前 20 条即「最近的 20 条」
+    var shown = modalExpanded[kind] ? rows : rows.slice(0, MODAL_PAGE);
+    var html = '<table class="mini-table">'+thead+'<tbody>'+shown.map(rowHTML).join("")+'</tbody></table>';
+    if(!modalExpanded[kind] && rows.length > MODAL_PAGE){
+      html += '<button type="button" class="btn ghost more-btn" data-more="'+kind+'">查看全部（共 '+rows.length+' 条）</button>';
+    }
+    box.innerHTML = html;
+  }
   function openCustomer(name){
     var s = customerSummary(name);
-    var orders = data.orders.filter(function(o){ return o.customer===name; }).sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
-    var repays = data.repayments.filter(function(r){ return r.customer===name; }).sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
-    var returns = data.returns.filter(function(t){ return t.customer===name; }).sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
+    // 明细一律按日期倒序（最新的在最上面）；同一天的多笔保持录入先后
+    function byDateDesc(a,b){ return (b.date||"").localeCompare(a.date||""); }
+    var orders = data.orders.filter(function(o){ return o.customer===name; }).sort(byDateDesc);
+    var repays = data.repayments.filter(function(r){ return r.customer===name; }).sort(byDateDesc);
+    var returns = data.returns.filter(function(t){ return t.customer===name; }).sort(byDateDesc);
+    if(billCustomer !== name){
+      modalExpanded = { o:false, r:false, t:false };
+      el("modalBody").scrollTop = 0;
+    }
     el("modalName").textContent = name;
     var remEl = el("modalRemaining");
     remEl.textContent = s.remaining>0 ? ("¥ " + fmtMoney(s.remaining)) : "已还清";
     remEl.className = "num" + (s.remaining>0 ? " neg" : " pos");
     el("modalSumline").textContent = "欠款总额 ¥"+fmtMoney(s.totalDebt)+" · 已还总额 ¥"+fmtMoney(s.totalPaid)+"（含首付 ¥"+fmtMoney(s.orderPaid)+" + 后续还款 ¥"+fmtMoney(s.repay)+"）"+(s.refund>0 ? " · 退货总额 ¥"+fmtMoney(s.refund) : "");
 
-    if(orders.length===0){
-      el("modalOrders").innerHTML = '<div class="empty">无欠款订单</div>';
-    } else {
-      var oh = '<table class="mini-table"><thead><tr><th>日期</th><th>货号明细</th><th class="num">总额</th><th class="num">已付</th></tr></thead><tbody>';
-      oh += orders.map(function(o){
-        var items = (o.items && o.items.length) ? o.items : [];
-        var detail = items.map(function(it){
-          return esc(it.itemCode||"（无货号）")+'：单价 '+fmtMoney(it.price)+' × '+fmtQty(it.qty)+' = '+fmtMoney(it.subtotal);
-        }).join('<br>');
-        return '<tr><td>'+esc(o.date)+'</td><td>'+detail+'</td><td class="num">'+fmtMoney(o.total)+'</td><td class="num">'+fmtMoney(o.paid)+'</td></tr>';
-      }).join("");
-      oh += '</tbody></table>';
-      el("modalOrders").innerHTML = oh;
-    }
+    renderModalTable("modalOrders", "o", orders, "无欠款订单",
+      '<thead><tr><th>日期</th><th>货号明细</th><th class="num">总额</th><th class="num">已付</th></tr></thead>',
+      function(o){
+        return '<tr><td>'+esc(o.date)+'</td><td>'+modalItemDetail(o.items)+'</td><td class="num">'+fmtMoney(o.total)+'</td><td class="num">'+fmtMoney(o.paid)+'</td></tr>';
+      });
 
-    if(repays.length===0){
-      el("modalRepays").innerHTML = '<div class="empty">无还款记录</div>';
-    } else {
-      var rh = '<table class="mini-table"><thead><tr><th>日期</th><th class="num">金额</th><th>备注</th></tr></thead><tbody>';
-      rh += repays.map(function(r){
+    renderModalTable("modalRepays", "r", repays, "无还款记录",
+      '<thead><tr><th>日期</th><th class="num">金额</th><th>备注</th></tr></thead>',
+      function(r){
         return '<tr><td>'+esc(r.date)+'</td><td class="num">'+fmtMoney(r.amount)+'</td><td>'+esc(r.note||"")+'</td></tr>';
-      }).join("");
-      rh += '</tbody></table>';
-      el("modalRepays").innerHTML = rh;
-    }
+      });
 
-    if(returns.length===0){
-      el("modalReturns").innerHTML = '<div class="empty">无退货记录</div>';
-    } else {
-      var th = '<table class="mini-table"><thead><tr><th>日期</th><th>货号明细</th><th class="num">退货额</th></tr></thead><tbody>';
-      th += returns.map(function(t){
-        var items = (t.items && t.items.length) ? t.items : [];
-        var detail = items.map(function(it){
-          return esc(it.itemCode||"（无货号）")+'：单价 '+fmtMoney(it.price)+' × '+fmtQty(it.qty)+' = '+fmtMoney(it.subtotal);
-        }).join('<br>');
-        return '<tr><td>'+esc(t.date)+'</td><td>'+detail+'</td><td class="num">'+fmtMoney(t.total)+'</td></tr>';
-      }).join("");
-      th += '</tbody></table>';
-      el("modalReturns").innerHTML = th;
-    }
+    renderModalTable("modalReturns", "t", returns, "无退货记录",
+      '<thead><tr><th>日期</th><th>货号明细</th><th class="num">退货额</th></tr></thead>',
+      function(t){
+        return '<tr><td>'+esc(t.date)+'</td><td>'+modalItemDetail(t.items)+'</td><td class="num">'+fmtMoney(t.total)+'</td></tr>';
+      });
+
     el("modal").classList.add("open");
     billCustomer = name;
   }
@@ -1834,26 +1885,11 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     });
   });
 
-  el("dateFrom").addEventListener("change", renderDateList);
-  el("dateTo").addEventListener("change", renderDateList);
-  function setRange(from, to){ el("dateFrom").value = from; el("dateTo").value = to; renderDateList(); }
-  el("quickToday").addEventListener("click", function(){ setRange(todayStr(), todayStr()); });
-  el("quickWeek").addEventListener("click", function(){ setRange(shiftToday(-6), todayStr()); });
-  el("quickMonth").addEventListener("click", function(){ setRange(monthStart(), todayStr()); });
-  el("quickClear").addEventListener("click", function(){ setRange("", ""); });
-  el("dateList").addEventListener("click", function(e){
-    var b = e.target.closest("button[data-act]");
-    if(!b) return;
-    var kind = b.dataset.kind, id = b.dataset.id;
-    if(b.dataset.act==="edit"){
-      if(kind==="owe"){ setOrderEditMode(data.orders.find(function(x){ return x.id===id; })); switchTab("order"); }
-      else if(kind==="pay"){ setRepayEditMode(data.repayments.find(function(x){ return x.id===id; })); switchTab("repay"); }
-      else { setReturnEditMode(data.returns.find(function(x){ return x.id===id; })); switchTab("return"); }
-    } else {
-      if(kind==="owe") deleteOrder(id);
-      else if(kind==="pay") deleteRepay(id);
-      else deleteReturn(id);
-    }
+  el("monthPrev").addEventListener("click", function(){ curMonth = shiftMonth(curMonth || thisMonthKey(), -1); renderMonthStats(); });
+  el("monthNext").addEventListener("click", function(){
+    if(el("monthNext").disabled) return;
+    curMonth = shiftMonth(curMonth || thisMonthKey(), 1);
+    renderMonthStats();
   });
   el("btnExport").addEventListener("click", exportExcel);
   el("btnImport").addEventListener("click", function(){ el("importInput").click(); });
@@ -1876,6 +1912,12 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   });
   el("modalClose").addEventListener("click", closeModal);
   el("modal").addEventListener("click", function(e){ if(e.target===el("modal")) closeModal(); });
+  el("modalBody").addEventListener("click", function(e){
+    var b = e.target.closest ? e.target.closest("[data-more]") : null;
+    if(!b || !billCustomer) return;
+    modalExpanded[b.getAttribute("data-more")] = true;
+    openCustomer(billCustomer);
+  });
   el("btnBill").addEventListener("click", openBill);
   el("billShare").addEventListener("click", shareBill);
   el("billSave").addEventListener("click", saveBill);
