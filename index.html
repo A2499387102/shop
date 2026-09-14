@@ -1059,6 +1059,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   var BILL_DPR = 2;
   var BILL_PAD = 24;
   var BILL_MAX_H = 12000;
+  var BILL_DAYS = 2;
   var BILL_FONT = 'system-ui,-apple-system,"Microsoft YaHei",sans-serif';
 
   function billFont(size, weight){ return (weight||"normal") + " " + size + "px " + BILL_FONT; }
@@ -1080,6 +1081,11 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     return out;
   }
 
+  function mdLabel(dateStr){
+    var p = String(dateStr||"").split("-");
+    return p.length === 3 ? (parseInt(p[1],10) + "/" + parseInt(p[2],10)) : (dateStr||"");
+  }
+
   function layoutBill(ctx, name){
     var measure = function(t){ return ctx.measureText(t).width; };
     var s = customerSummary(name);
@@ -1089,6 +1095,11 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       .sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
     var returns = data.returns.filter(function(t){ return t.customer===name; })
       .sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); });
+
+    var billFrom = shiftToday(-(BILL_DAYS-1)), billTo = todayStr();
+    var ordersWin = orders.filter(function(o){ return inDateRange(o.date, billFrom, billTo); });
+    var repaysWin = repays.filter(function(r){ return inDateRange(r.date, billFrom, billTo); });
+    var returnsWin = returns.filter(function(t){ return inDateRange(t.date, billFrom, billTo); });
 
     var W = BILL_W, PAD = BILL_PAD, inner = W - PAD*2;
     var items = [];
@@ -1159,9 +1170,20 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       rule();
     }
 
-    text("欠款明细", {size:16, weight:"bold", gap:10});
-    if(orders.length === 0){
-      text("（无）", {size:13, color:"#898781", gap:10});
+    function headNote(label, total, shown){
+      var hy = y;
+      text(label, {size:16, weight:"bold", gap:10});
+      if(shown > 0 && total > shown){
+        items.push({type:"text", x:PAD+inner, y:hy+5,
+          lines:["最近 "+BILL_DAYS+" 天："+mdLabel(billFrom)+"、"+mdLabel(billTo)+"（共 "+shown+" 条）"],
+          size:11, weight:"normal", color:"#898781", align:"right", lh:15});
+      }
+    }
+    function noRows(total){ return total > 0 ? "（最近 "+BILL_DAYS+" 天无记录）" : "（无）"; }
+
+    headNote("欠款明细", orders.length, ordersWin.length);
+    if(ordersWin.length === 0){
+      text(noRows(orders.length), {size:13, color:"#898781", gap:10});
     } else {
       tableHead([
         {label:"日期", x:PAD, w:C_DATE},
@@ -1169,7 +1191,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         {label:"总额", x:PAD+C_DATE+cDetailW+C_TOTAL, w:C_TOTAL, align:"right"},
         {label:"已付", x:PAD+inner, w:C_PAID, align:"right"}
       ]);
-      orders.forEach(function(o){
+      ordersWin.forEach(function(o){
         var its = (o.items && o.items.length) ? o.items : [];
         var detail = its.length ? its.map(function(it){
           return (it.itemCode||"（无货号）") + "：" + fmtMoney(it.price) + " × " + fmtQty(it.qty) + " = " + fmtMoney(it.subtotal);
@@ -1184,9 +1206,9 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }
     y += 6;
 
-    text("还款明细", {size:16, weight:"bold", gap:10});
-    if(repays.length === 0){
-      text("（无）", {size:13, color:"#898781", gap:10});
+    headNote("还款明细", repays.length, repaysWin.length);
+    if(repaysWin.length === 0){
+      text(noRows(repays.length), {size:13, color:"#898781", gap:10});
     } else {
       var amtW = 80, noteGap = 12;
       var xAmtEnd = PAD + C_DATE + amtW;
@@ -1197,7 +1219,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         {label:"金额", x:xAmtEnd, w:amtW, align:"right"},
         {label:"备注", x:xNote, w:noteW}
       ]);
-      repays.forEach(function(r){
+      repaysWin.forEach(function(r){
         tableRow([
           {text:r.date||"", x:PAD, w:C_DATE},
           {text:fmtMoney(r.amount), x:xAmtEnd, w:amtW, align:"right", color:"#0ca30c"},
@@ -1207,9 +1229,9 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }
 
     y += 4;
-    text("退货明细", {size:16, weight:"bold", gap:10});
-    if(returns.length === 0){
-      text("（无）", {size:13, color:"#898781", gap:10});
+    headNote("退货明细", returns.length, returnsWin.length);
+    if(returnsWin.length === 0){
+      text(noRows(returns.length), {size:13, color:"#898781", gap:10});
     } else {
       var rTotW = 74;
       var rDetailW = inner - C_DATE - rTotW;
@@ -1218,7 +1240,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         {label:"货号明细", x:PAD+C_DATE, w:rDetailW},
         {label:"退货额", x:PAD+inner, w:rTotW, align:"right"}
       ]);
-      returns.forEach(function(t){
+      returnsWin.forEach(function(t){
         var its = (t.items && t.items.length) ? t.items : [];
         var detail = its.length ? its.map(function(it){
           return (it.itemCode||"（无货号）") + "：" + fmtMoney(it.price) + " × " + fmtQty(it.qty) + " = " + fmtMoney(it.subtotal);
