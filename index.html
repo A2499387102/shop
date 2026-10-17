@@ -1545,6 +1545,18 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }
     touchDraft("repay");
   }
+  // 多还检查：客户不可能多还钱，若本次还款超过其当前未还额，多半是金额输错了。
+  // 编辑已有还款时，要把这一笔原来的金额先加回未还额，否则会误判成多还。
+  function repayOverpayInfo(customer, amount, isEdit, editId){
+    var base = customerSummary(customer).remaining;
+    if(isEdit){
+      var old = data.repayments.find(function(x){ return x.id === editId; });
+      // 只有还改同一个客户时才加回；若改了客户名，原记录归还原来那个客户
+      if(old && old.customer === customer) base = round2(base + num(old.amount));
+    }
+    var after = round2(base - amount);
+    return after < 0 ? { base: base, over: round2(-after) } : null;
+  }
   function onRepaySubmit(e){
     e.preventDefault();
     var isEdit = !!editingRepayId;
@@ -1552,6 +1564,19 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     if(!customer){ alert("请填写客户名称"); return; }
     var amount = round2(num(el("rAmount").value));
     if(amount<=0){ alert("请填写正确的还款金额"); return; }
+    var chk = repayOverpayInfo(customer, amount, isEdit, editingRepayId);
+    if(chk){
+      var head = chk.base > 0
+        ? "「"+customer+"」目前只欠 ¥"+fmtMoney(chk.base)
+        : "「"+customer+"」目前没有欠款";
+      var ok = confirm(
+        head + "\n" +
+        "本次还款 ¥"+fmtMoney(amount)+"，会多出 ¥"+fmtMoney(chk.over)+"\n\n" +
+        "客户不可能多还钱，请确认金额有没有输错。\n" +
+        "确定要按这个金额记录吗？"
+      );
+      if(!ok) return;
+    }
     var rec = { id: editingRepayId || genId("r"), customer:customer, date: el("rDate").value || todayStr(), amount:amount, note: el("rNote").value.trim() };
     if(editingRepayId){
       var i = data.repayments.findIndex(function(x){ return x.id===editingRepayId; });
