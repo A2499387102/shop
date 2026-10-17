@@ -237,6 +237,30 @@
     position:absolute; top:12px; right:14px; width:36px; height:36px; border-radius:50%;
     border:0; background:rgba(255,255,255,0.18); color:#fff; font-size:16px; cursor:pointer;
   }
+
+  /* 保存/更新成功后的浮出提示（不打断操作，自动消失） */
+  .toast{
+    position:fixed; left:14px; right:14px; bottom:calc(76px + env(safe-area-inset-bottom));
+    max-width:462px; margin:0 auto; z-index:60;
+    background:var(--surface); color:var(--ink);
+    border:1px solid var(--line); border-radius:14px;
+    padding:13px 15px; display:flex; align-items:flex-start; gap:10px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.20);
+    font-size:14px; font-weight:600; line-height:1.45;
+    opacity:0; visibility:hidden; transform:translateY(10px); pointer-events:none;
+    transition:opacity .22s ease, transform .22s ease, visibility .22s;
+  }
+  .toast.show{ opacity:1; visibility:visible; transform:translateY(0); }
+  .toast .ico{
+    flex:none; width:22px; height:22px; border-radius:50%;
+    background:var(--pos); color:#fff; font-size:13px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; margin-top:1px;
+  }
+  .toast .msg{ flex:1; min-width:0; }
+  .toast .msg em{
+    display:block; font-style:normal; font-size:12px; font-weight:600;
+    color:var(--muted); margin-top:3px;
+  }
 </style>
 </head>
 <body>
@@ -514,6 +538,12 @@
   <button class="bill-x" id="billClose">✕</button>
 </div>
 
+<!-- 保存/更新成功提示 -->
+<div class="toast" id="toast">
+  <span class="ico">✓</span>
+  <div class="msg" id="toastMsg"></div>
+</div>
+
 <input type="file" id="importInput" accept=".xlsx,.xls" hidden>
 <datalist id="customerDatalist"></datalist>
 
@@ -712,6 +742,32 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
 
   // ---------- 渲染 ----------
   function el(id){ return document.getElementById(id); }
+
+  // ---------- 保存/更新成功提示 ----------
+  var toastTimer = null;
+  function showToast(title, tip){
+    var box = el("toast"), msg = el("toastMsg");
+    if(!box || !msg) return;
+    msg.innerHTML = "";
+    var line = document.createElement("div");
+    line.textContent = title;
+    msg.appendChild(line);
+    if(tip){
+      var sub = document.createElement("em");
+      sub.textContent = tip;
+      msg.appendChild(sub);
+    }
+    box.classList.add("show");
+    if(toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){
+      box.classList.remove("show");
+      toastTimer = null;
+    }, 3200);
+  }
+  // 三种记录保存/更新后统一提示，顺带提醒导出备份
+  function savedToast(what, isEdit){
+    showToast((isEdit ? what + "已更新" : what + "已保存"), "记得导出 Excel 备份哦");
+  }
 
   function refreshDatalists(){
     var names = allCustomers();
@@ -1032,6 +1088,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
   function onOrderSubmit(e){
     e.preventDefault();
+    var isEdit = !!editingOrderId;
     var customer = el("oCustomer").value.trim();
     if(!customer){ alert("请填写客户名称"); return; }
     var items = collectItems("orderItems");
@@ -1052,6 +1109,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     setOrderEditMode(null);
     resetOrderForm();
     switchTab("order");
+    savedToast("订单", isEdit);
   }
   function resetOrderForm(){
     el("orderForm").reset();
@@ -1077,6 +1135,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
   function onReturnSubmit(e){
     e.preventDefault();
+    var isEdit = !!editingReturnId;
     var customer = el("tCustomer").value.trim();
     if(!customer){ alert("请填写客户名称"); return; }
     var items = collectItems("returnItems");
@@ -1096,6 +1155,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     setReturnEditMode(null);
     resetReturnForm();
     switchTab("return");
+    savedToast("退货", isEdit);
   }
   function resetReturnForm(){
     el("returnForm").reset();
@@ -1430,6 +1490,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
   function onRepaySubmit(e){
     e.preventDefault();
+    var isEdit = !!editingRepayId;
     var customer = el("rCustomer").value.trim();
     if(!customer){ alert("请填写客户名称"); return; }
     var amount = round2(num(el("rAmount").value));
@@ -1447,6 +1508,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     setRepayEditMode(null);
     resetRepayForm();
     switchTab("repay");
+    savedToast("还款", isEdit);
   }
   function resetRepayForm(){
     el("repayForm").reset();
