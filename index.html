@@ -658,6 +658,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     return changed;
   }
   function save(){
+    invalidateCalc();   // 数据变了，汇总缓存作废（所有改动都会经过这里）
     try{ localStorage.setItem(LS_KEY, JSON.stringify(data)); }catch(e){ alert("保存失败，浏览器存储可能已满："+e.message); }
   }
   function loadSettings(){
@@ -712,32 +713,88 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
 
   // ---------- 数据计算 ----------
+  // 汇总缓存：data 一旦变动就作废。原来每次在搜索框输入都会把全部记录重算两遍，
+  // 记录一多就会卡；现在只在数据真正变化时算一次。
+  var calcCache = null;
+  function invalidateCalc(){ calcCache = null; }
+
+  function zhCompare(a, b){ return a.localeCompare(b, "zh"); }
+
+  // 一次遍历累积每个客户的欠款/已付/还款/退货（约 O(订单+还款+退货)）。
+  // 原实现是对每个客户各扫一遍全表，接近 O(客户数 × 记录数)。
+  function buildCalc(){
+    var acc = {}, summaries = {};
+    function slot(name){
+      if(!acc[name]) acc[name] = { totalDebt:0, orderPaid:0, repay:0, refund:0 };
+      return acc[name];
+    }
+    data.orders.forEach(function(o){
+      if(!o.customer) return;
+      var s = slot(o.customer);
+      s.totalDebt += num(o.total);
+      s.orderPaid += num(o.paid);
+    });
+    data.repayments.forEach(function(r){
+      if(!r.customer) return;
+      slot(r.customer).repay += num(r.amount);
+    });
+    data.returns.forEach(function(t){
+      if(!t.customer) return;
+      slot(t.customer).refund += num(t.total);
+    });
+
+    var names = Object.keys(acc);
+    names.forEach(function(name){
+      var s = acc[name];
+      var totalDebt = round2(s.totalDebt);
+      var orderPaid = round2(s.orderPaid);
+      var repay = round2(s.repay);
+      var refund = round2(s.refund);
+      var totalPaid = round2(orderPaid + repay);
+      summaries[name] = {
+        totalDebt:totalDebt, orderPaid:orderPaid, repay:repay, refund:refund,
+        totalPaid:totalPaid, remaining:round2(totalDebt - totalPaid - refund)
+      };
+    });
+
+    var list = names.map(function(n){ return { name:n, s:summaries[n] }; })
+      .filter(function(x){ return x.s.totalDebt>0 || x.s.totalPaid>0 || x.s.refund>0; });
+    list.sort(function(a,b){ return (b.s.remaining-a.s.remaining) || zhCompare(a.name, b.name); });
+
+    var debtCustomers=0, totalDebt=0, totalPaid=0, totalRefund=0, totalRemaining=0;
+    list.forEach(function(x){
+      var s = x.s;
+      if(s.remaining > 0){ debtCustomers++; totalRemaining += s.remaining; }
+      totalDebt += s.totalDebt; totalPaid += s.totalPaid; totalRefund += s.refund;
+    });
+
+    return {
+      summaries: summaries,
+      overview: {
+        list: list,
+        debtCustomers: debtCustomers,
+        totalDebt: round2(totalDebt),
+        totalPaid: round2(totalPaid),
+        totalRefund: round2(totalRefund),
+        totalRemaining: round2(totalRemaining)
+      }
+    };
+  }
+
+  function getCalc(){
+    if(!calcCache) calcCache = buildCalc();
+    return calcCache;
+  }
+
   function allCustomers(){
-    var set = {};
-    data.orders.forEach(function(o){ if(o.customer) set[o.customer]=1; });
-    data.repayments.forEach(function(r){ if(r.customer) set[r.customer]=1; });
-    data.returns.forEach(function(t){ if(t.customer) set[t.customer]=1; });
-    return Object.keys(set).sort(function(a,b){ return a.localeCompare(b,"zh"); });
+    return Object.keys(getCalc().summaries).sort(zhCompare);
   }
   function customerSummary(name){
-    var totalDebt=0, orderPaid=0, repay=0, refund=0;
-    data.orders.forEach(function(o){ if(o.customer===name){ totalDebt+=num(o.total); orderPaid+=num(o.paid); } });
-    data.repayments.forEach(function(r){ if(r.customer===name){ repay+=num(r.amount); } });
-    data.returns.forEach(function(t){ if(t.customer===name){ refund+=num(t.total); } });
-    totalDebt = round2(totalDebt); orderPaid = round2(orderPaid); repay = round2(repay); refund = round2(refund);
-    var totalPaid = round2(orderPaid + repay);
-    var remaining = round2(totalDebt - totalPaid - refund);
-    return { totalDebt:totalDebt, orderPaid:orderPaid, repay:repay, refund:refund, totalPaid:totalPaid, remaining:remaining };
+    return getCalc().summaries[name] ||
+      { totalDebt:0, orderPaid:0, repay:0, refund:0, totalPaid:0, remaining:0 };
   }
   function overview(){
-    var names = allCustomers();
-    var list = names.map(function(n){ var s=customerSummary(n); return {name:n, s:s}; });
-    list = list.filter(function(x){ return x.s.totalDebt>0 || x.s.totalPaid>0 || x.s.refund>0; });
-    list.sort(function(a,b){ return (b.s.remaining-a.s.remaining) || a.name.localeCompare(b.name,"zh"); });
-    var debtCustomers = list.filter(function(x){ return x.s.remaining>0; }).length;
-    var totalDebt=0, totalPaid=0, totalRefund=0, totalRemaining=0;
-    list.forEach(function(x){ totalDebt+=x.s.totalDebt; totalPaid+=x.s.totalPaid; totalRefund+=x.s.refund; if(x.s.remaining>0) totalRemaining+=x.s.remaining; });
-    return { list:list, debtCustomers:debtCustomers, totalDebt:round2(totalDebt), totalPaid:round2(totalPaid), totalRefund:round2(totalRefund), totalRemaining:round2(totalRemaining) };
+    return getCalc().overview;
   }
 
   // ---------- 渲染 ----------
