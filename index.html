@@ -85,6 +85,12 @@
     padding-top:14px; border-top:1px solid var(--line);
   }
   .data-note b{ color:var(--ink2); }
+  .data-restore{
+    margin-top:12px; padding:11px 12px; border:1px dashed var(--border);
+    border-radius:12px; background:var(--surface2);
+  }
+  .data-restore-text{ font-size:13px; color:var(--ink2); line-height:1.65; margin-bottom:9px; }
+  .data-restore .btn{ min-height:44px; padding:10px 14px; font-size:14px; }
   main{ flex:1; padding:16px 14px 96px; }
   .bottom-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:20;
@@ -619,6 +625,11 @@
     <div class="sheet-body">
       <div class="data-summary" id="dataSummary"></div>
 
+      <div class="data-restore" id="dataRestore" style="display:none">
+        <div class="data-restore-text" id="dataRestoreText"></div>
+        <button type="button" class="btn ghost" id="dataRestoreBtn">恢复到导入前的数据</button>
+      </div>
+
       <button class="btn" id="btnExport" style="margin:16px 0 0">导出 Excel 备份</button>
       <button class="btn ghost" id="btnImport" style="margin:10px 0 0">导入 Excel（覆盖本机数据）</button>
 
@@ -709,6 +720,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   var BK_KEY = "debtLedger.backupRev.v1";
   var LAST_AT_KEY = "debtLedger.lastBackupAt.v1";   // 上次导出/备份的日期
   var HINT_KEY = "debtLedger.hintDay.v1";           // 进站提示当天点过「知道了」就不再显示
+  var PRE_IMPORT_KEY = "debtLedger.preImport.v1";   // 导入前自动留的底，可一键恢复
   var data = load();
   if(data.photosPurged){ delete data.photosPurged; save(); }
   var settings = loadSettings();
@@ -844,6 +856,46 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     if(isNaN(a.getTime()) || isNaN(b.getTime())) return -1;
     return Math.round((b.getTime() - a.getTime()) / 86400000);
   }
+  function nowText(){
+    var d = new Date();
+    return todayStr() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+  function readPreImport(){
+    try{
+      var raw = localStorage.getItem(PRE_IMPORT_KEY);
+      if(raw){ var p = JSON.parse(raw); if(p && p.at) return p; }
+    }catch(e){}
+    return null;
+  }
+  // 导入前把当前数据留一份底。存在 localStorage 里，不依赖下载，任何浏览器都能用。
+  function stashBeforeImport(){
+    try{
+      localStorage.setItem(PRE_IMPORT_KEY, JSON.stringify({
+        at: nowText(),
+        ts: new Date().getTime(),
+        orders: data.orders || [],
+        repayments: data.repayments || [],
+        returns: data.returns || [],
+        storeName: settings.storeName || ""
+      }));
+      return true;
+    }catch(e){ return false; }
+  }
+  function restorePreImport(){
+    var p = readPreImport();
+    if(!p) return;
+    if(!confirm("要用「" + p.at + "」导入前的数据覆盖现在的账本吗？\n（现在这批数据会被替换掉）")) return;
+    data = { orders:p.orders || [], repayments:p.repayments || [], returns:p.returns || [], rev:(data.rev||0) + 1 };
+    if(typeof p.storeName === "string"){
+      settings.storeName = p.storeName;
+      saveSettings();
+      el("storeNameInput").value = settings.storeName;
+    }
+    try{ localStorage.removeItem(PRE_IMPORT_KEY); }catch(e){}
+    save(); renderAll(); updateBackupUI();
+    closeDataSheet();
+    alert("已恢复到导入前的数据。记得再点「导出 Excel 备份」存一份。");
+  }
   function updateBackupUI(){
     var st = el("backupStatus");
     if(st){
@@ -903,6 +955,29 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       }
     }
     box.innerHTML = lines.join("<br>");
+
+    // 有「导入前的底」时，面板里多一条一键恢复（只保留最近 7 天，免得一直挂着）
+    var rb = el("dataRestore"), rt = el("dataRestoreText");
+    if(rb && rt){
+      var pre = readPreImport();
+      var pn = 0;
+      if(pre){
+        var ageDays = pre.ts ? (new Date().getTime() - pre.ts) / 86400000 : 999;
+        if(ageDays <= 7){
+          pn = (pre.orders || []).length + (pre.repayments || []).length + (pre.returns || []).length;
+        } else {
+          try{ localStorage.removeItem(PRE_IMPORT_KEY); }catch(e){}
+        }
+      }
+      if(pn > 0){
+        rt.innerHTML = "导入前（" + pre.at + "）的数据还留着一份：订单 " +
+          (pre.orders || []).length + " / 还款 " + (pre.repayments || []).length +
+          " / 退货 " + (pre.returns || []).length + " 笔";
+        rb.style.display = "";
+      } else {
+        rb.style.display = "none";
+      }
+    }
   }
 
   // 进站提示：只在真正需要时说一句，当天点过「知道了」就不再打扰
@@ -2095,17 +2170,19 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         var msg = "文件里找到：订单 " + orders.length + " 条、还款 " + repays.length + " 条、退货 " + returns.length + " 条";
         if(cur.total > 0){
           msg += "\n\n本机现有：订单 " + cur.o + " 条、还款 " + cur.r + " 条、退货 " + cur.t + " 条（共 " + cur.total + " 笔）";
-          msg += "\n导入会【整体覆盖】本机这些数据，无法撤销。";
+          msg += "\n导入会【整体覆盖】本机这些数据。";
+          msg += "\n\n不过本机现在的数据会先留一份底，导错了可以在「数据」面板里一键恢复。";
           if(isDirty()){
-            msg += "\n\n⚠ 本机还有没导出的改动。";
-            msg += "\n继续的话，我会先把本机现在的数据另存一份 Excel，万一导错还能导回来。";
+            msg += "\n⚠ 本机还有没导出的改动，也一并留在这份底里。";
           }
         }
         msg += "\n\n确定导入吗？";
         if(!confirm(msg)) return;
-        // 本机有未导出的改动时，先另存一份再覆盖
-        if(cur.total > 0 && isDirty()){
-          try{ exportExcel(true); }catch(e){}
+        // 覆盖前留底：优先存 localStorage（不依赖下载，任何浏览器都可靠）；存不下再退回下载 Excel
+        var stashed = false;
+        if(cur.total > 0){
+          stashed = stashBeforeImport();
+          if(!stashed){ try{ exportExcel(true); }catch(e){} }
         }
         data = { orders:orders, repayments:repays, returns:returns, rev: (data.rev||0) + 1 };
         save(); renderAll();
@@ -2115,7 +2192,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
           el("storeNameInput").value = storeName;
         }
         setBackedUp();
-        alert("导入成功！共 "+orders.length+" 条订单、"+repays.length+" 条还款、"+returns.length+" 条退货。" + (storeName !== null ? "\n店名：" + (storeName || "（空）") : ""));
+        alert("导入成功！共 "+orders.length+" 条订单、"+repays.length+" 条还款、"+returns.length+" 条退货。" + (storeName !== null ? "\n店名：" + (storeName || "（空）") : "") + (stashed ? "\n\n导入前的数据已留底，可在右上角「数据」面板里一键恢复。" : ""));
       }catch(err){
         alert("导入失败："+err.message);
       }
@@ -2325,6 +2402,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     dismissHint();
   });
   el("dataHintClose").addEventListener("click", dismissHint);
+  el("dataRestoreBtn").addEventListener("click", restorePreImport);
   // 注意：直接传 exportExcel 会把 click 事件当成 silent 参数，导致手动导出走了时间戳文件名
   el("btnExport").addEventListener("click", function(){ exportExcel(false); });
   el("btnImport").addEventListener("click", function(){ el("importInput").click(); });
