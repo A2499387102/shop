@@ -48,6 +48,43 @@
   }
   .app-header h1{ margin:0; font-size:21px; font-weight:800; letter-spacing:.2px; }
   .app-header p{ margin:3px 0 0; font-size:13px; color:var(--muted); line-height:1.5; }
+  .app-header p.warn{ color:var(--neg); font-weight:700; }
+  .app-header p.hint{ color:var(--accent); font-weight:700; }
+  .header-row{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
+  .header-text{ min-width:0; }
+  .data-btn{
+    position:relative; flex:none; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:2px; padding:8px 12px; min-width:58px; min-height:44px;
+    border:1px solid var(--border); border-radius:12px; background:var(--surface2);
+    color:var(--ink2); font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .data-btn:active{ opacity:.8; }
+  .data-btn .data-ico{ font-size:16px; line-height:1; }
+  .data-dot{
+    position:absolute; top:6px; right:7px; width:8px; height:8px; border-radius:50%;
+    background:var(--neg); display:none;
+  }
+  .data-dot.show{ display:block; }
+
+  /* 进站提示：只在「本机没数据」或「有改动没导出」时出现 */
+  .data-hint{
+    border:1px solid var(--accent); border-radius:14px; background:var(--surface);
+    padding:13px 14px; margin-bottom:14px; box-shadow:var(--shadow);
+  }
+  .data-hint-text{ font-size:14px; color:var(--ink); line-height:1.6; font-weight:600; }
+  .data-hint-text b{ color:var(--accent); }
+  .data-hint-ops{ display:flex; gap:9px; margin-top:12px; }
+  .data-hint-ops .btn{ padding:11px 14px; font-size:15px; min-height:44px; }
+
+  .data-summary{ font-size:14px; color:var(--ink2); line-height:1.8; }
+  .data-summary b{ color:var(--ink); }
+  .data-summary .warn{ color:var(--neg); font-weight:700; }
+  .data-summary .ok{ color:var(--pos); font-weight:700; }
+  .data-note{
+    font-size:13px; color:var(--muted); line-height:1.75; margin-top:18px;
+    padding-top:14px; border-top:1px solid var(--line);
+  }
+  .data-note b{ color:var(--ink2); }
   main{ flex:1; padding:16px 14px 96px; }
   .bottom-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:20;
@@ -315,11 +352,28 @@
 <body>
 <div class="app">
   <header class="app-header">
-    <h1>欠款记账</h1>
-    <p>数据保存在本机浏览器，请定期「导出 Excel」备份</p>
+    <div class="header-row">
+      <div class="header-text">
+        <h1>欠款记账</h1>
+        <p id="headerSub">数据保存在本机浏览器，请定期导出 Excel 备份</p>
+      </div>
+      <button type="button" class="data-btn" id="btnData" aria-label="数据备份与导入">
+        <span class="data-ico">⇅</span>
+        <span>数据</span>
+        <span class="data-dot" id="dataDot"></span>
+      </button>
+    </div>
   </header>
 
   <main>
+    <!-- 进站提示：本机没数据 / 有改动没导出 时才显示 -->
+    <div class="data-hint" id="dataHint" style="display:none">
+      <div class="data-hint-text" id="dataHintText"></div>
+      <div class="data-hint-ops">
+        <button type="button" class="btn" id="dataHintMain">导入 Excel</button>
+        <button type="button" class="btn ghost" id="dataHintClose">知道了</button>
+      </div>
+    </div>
     <!-- 记账 -->
     <section id="tab-order" class="tab-panel active">
       <div class="card">
@@ -518,30 +572,6 @@
         绿色表示「往好的方向」（订单、还款变多是绿；欠款、退货变多是红）。
       </div>
 
-      <div class="list-title">备份与导出</div>
-      <div class="card">
-        <div class="backup-row">
-          <div>
-            <div class="backup-title">自动备份到 Excel</div>
-            <div class="backup-sub">每次保存后自动下载最新 Excel 备份</div>
-          </div>
-          <label class="switch">
-            <input type="checkbox" id="autoBackupToggle">
-            <span class="slider"></span>
-          </label>
-        </div>
-        <div class="backup-status" id="backupStatus"></div>
-      </div>
-      <div class="card">
-        <div class="field" style="margin-bottom:0">
-          <label>店名（生成账单图时显示在图片顶部，可留空）</label>
-          <input id="storeNameInput" type="text" placeholder="如：张三五金店" maxlength="20">
-        </div>
-      </div>
-      <div class="toolbar">
-        <button class="btn" id="btnExport">导出 Excel</button>
-        <button class="btn ghost" id="btnImport">导入 Excel</button>
-      </div>
     </section>
   </main>
 
@@ -549,7 +579,7 @@
     <button class="nav-btn active" data-tab="order"><span class="ico">✎</span>记账</button>
     <button class="nav-btn" data-tab="repay"><span class="ico">¥</span>还款</button>
     <button class="nav-btn" data-tab="return"><span class="ico">↩</span>退货</button>
-    <button class="nav-btn" data-tab="overview"><span class="ico">▤</span>账单总览<span class="nav-dot" id="navDot"></span></button>
+    <button class="nav-btn" data-tab="overview"><span class="ico">▤</span>账单总览</button>
   </nav>
 </div>
 
@@ -575,6 +605,50 @@
     </div>
     <div class="sheet-foot">
       <button class="btn" id="btnBill">📷 生成账单图</button>
+    </div>
+  </div>
+</div>
+
+<!-- 数据：备份 / 导入 / 自动备份 / 店名 -->
+<div class="modal" id="dataModal">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3>数据备份与导入</h3>
+      <button type="button" class="close-x" id="dataModalClose">×</button>
+    </div>
+    <div class="sheet-body">
+      <div class="data-summary" id="dataSummary"></div>
+
+      <button class="btn" id="btnExport" style="margin:16px 0 0">导出 Excel 备份</button>
+      <button class="btn ghost" id="btnImport" style="margin:10px 0 0">导入 Excel（覆盖本机数据）</button>
+
+      <div class="card" style="margin:18px 0 0">
+        <div class="backup-row">
+          <div>
+            <div class="backup-title">自动备份到 Excel</div>
+            <div class="backup-sub">每次保存后自动下载一份最新 Excel</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="autoBackupToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="backup-status" id="backupStatus"></div>
+      </div>
+
+      <div class="card">
+        <div class="field" style="margin-bottom:0">
+          <label>店名（生成账单图时显示在图片顶部，可留空）</label>
+          <input id="storeNameInput" type="text" placeholder="如：张三五金店" maxlength="20">
+        </div>
+      </div>
+
+      <div class="data-note">
+        <b>怎么用最省心：</b>本机数据会自动保存，不用每天导入。<br>
+        · <b>导出</b>：建议每天收工前点一次，文件名带日期，存微信或网盘都行。<br>
+        · <b>导入</b>：只在换手机、清了浏览器数据、或账本出错要用备份恢复时才点。<br>
+        · 导入会<b>整体覆盖</b>本机数据；如果本机还有没导出的改动，会先帮你另存一份再覆盖。
+      </div>
     </div>
   </div>
 </div>
@@ -633,6 +707,8 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   var LS_KEY = "debtLedger.v1";
   var SETTINGS_KEY = "debtLedger.settings.v1";
   var BK_KEY = "debtLedger.backupRev.v1";
+  var LAST_AT_KEY = "debtLedger.lastBackupAt.v1";   // 上次导出/备份的日期
+  var HINT_KEY = "debtLedger.hintDay.v1";           // 进站提示当天点过「知道了」就不再显示
   var data = load();
   if(data.photosPurged){ delete data.photosPurged; save(); }
   var settings = loadSettings();
@@ -733,8 +809,14 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   function lastBackupRev(){
     return parseInt(localStorage.getItem(BK_KEY)||"0",10) || 0;
   }
+  function lastBackupAt(){
+    try{ return localStorage.getItem(LAST_AT_KEY) || ""; }catch(e){ return ""; }
+  }
   function setBackedUp(){
-    try{ localStorage.setItem(BK_KEY, String(data.rev||0)); }catch(e){}
+    try{
+      localStorage.setItem(BK_KEY, String(data.rev||0));
+      localStorage.setItem(LAST_AT_KEY, todayStr());
+    }catch(e){}
     updateBackupUI();
   }
   function isDirty(){ return (data.rev||0) > lastBackupRev(); }
@@ -744,6 +826,23 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     renderAll();
     updateBackupUI();
     maybeAutoBackup();
+  }
+  function dataCounts(){
+    var o = data.orders.length, r = data.repayments.length, t = data.returns.length;
+    return { o:o, r:r, t:t, total:o+r+t };
+  }
+  function earliestDate(){
+    var min = "";
+    [data.orders, data.repayments, data.returns].forEach(function(arr){
+      (arr||[]).forEach(function(x){ if(x && x.date && (!min || x.date < min)) min = x.date; });
+    });
+    return min;
+  }
+  function daysBetween(fromStr, toStr){
+    if(!fromStr) return -1;
+    var a = new Date(fromStr + "T00:00:00"), b = new Date(toStr + "T00:00:00");
+    if(isNaN(a.getTime()) || isNaN(b.getTime())) return -1;
+    return Math.round((b.getTime() - a.getTime()) / 86400000);
   }
   function updateBackupUI(){
     var st = el("backupStatus");
@@ -756,8 +855,91 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         st.className = "backup-status";
       }
     }
-    var dot = el("navDot");
+    var dot = el("dataDot");
     if(dot) dot.classList.toggle("show", isDirty());
+    updateHeaderSub();
+    renderDataSheet();
+    updateDataHint();
+  }
+
+  // 页头一句话说清「数据在哪、新不新」
+  function updateHeaderSub(){
+    var sub = el("headerSub");
+    if(!sub) return;
+    var c = dataCounts();
+    if(c.total === 0){
+      sub.textContent = "还没有数据 · 点右上角「数据」可导入之前的 Excel";
+      sub.className = "hint";
+      return;
+    }
+    if(isDirty()){
+      sub.textContent = "本机 " + c.total + " 笔记录 · 有改动还没导出";
+      sub.className = "warn";
+      return;
+    }
+    var d = daysBetween(lastBackupAt(), todayStr());
+    sub.textContent = "本机 " + c.total + " 笔记录 · " +
+      (d < 0 ? "已备份" : (d === 0 ? "今天已导出" : "上次导出 " + d + " 天前"));
+    sub.className = "";
+  }
+
+  // 「数据」面板里显示的本机概况
+  function renderDataSheet(){
+    var box = el("dataSummary");
+    if(!box) return;
+    var c = dataCounts();
+    var lines = [];
+    if(c.total === 0){
+      lines.push("本机：<b>还没有任何记录</b>");
+    } else {
+      lines.push("本机：<b>" + c.total + "</b> 笔（订单 " + c.o + " / 还款 " + c.r + " / 退货 " + c.t + "）");
+      var lo = earliestDate();
+      if(lo) lines.push("最早一笔：" + lo);
+      if(isDirty()){
+        lines.push("<span class='warn'>有改动还没导出备份</span>");
+      } else {
+        var d = daysBetween(lastBackupAt(), todayStr());
+        lines.push("<span class='ok'>已备份</span>" + (d <= 0 ? "（今天）" : "（" + d + " 天前）"));
+      }
+    }
+    box.innerHTML = lines.join("<br>");
+  }
+
+  // 进站提示：只在真正需要时说一句，当天点过「知道了」就不再打扰
+  function hintDismissedToday(){
+    try{ return localStorage.getItem(HINT_KEY) === todayStr(); }catch(e){ return false; }
+  }
+  function dismissHint(){
+    try{ localStorage.setItem(HINT_KEY, todayStr()); }catch(e){}
+    updateDataHint();
+  }
+  function updateDataHint(){
+    var box = el("dataHint"), txt = el("dataHintText"), main = el("dataHintMain");
+    if(!box || !txt || !main) return;
+    var c = dataCounts();
+    var mode = c.total === 0 ? "empty" : (isDirty() ? "dirty" : null);
+    if(!mode || hintDismissedToday()){
+      box.style.display = "none";
+      return;
+    }
+    if(mode === "empty"){
+      txt.innerHTML = "第一次用？如果以前的账记在 <b>Excel</b> 里，先点「导入 Excel」把数据搬进来，别从现在起记成两本账。";
+      main.textContent = "导入 Excel";
+      main.setAttribute("data-act", "import");
+    } else {
+      txt.innerHTML = "本机有改动还没<b>导出备份</b>。浏览器数据万一被清掉就找不回来了，建议现在导一份。";
+      main.textContent = "立即导出";
+      main.setAttribute("data-act", "export");
+    }
+    box.style.display = "";
+  }
+
+  function openDataSheet(){
+    renderDataSheet();
+    el("dataModal").classList.add("open");
+  }
+  function closeDataSheet(){
+    el("dataModal").classList.remove("open");
   }
   function maybeAutoBackup(){
     if(settings.autoBackup && (data.orders.length + data.repayments.length + data.returns.length) > 0){
@@ -1908,7 +2090,23 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
           alert("没有在文件里找到有效数据。请确认工作表名称为「欠款订单」「还款记录」，且表头包含「客户名称」「日期」等列。");
           return;
         }
-        if(!confirm("将用导入的 "+orders.length+" 条订单、"+repays.length+" 条还款、"+returns.length+" 条退货 覆盖当前账本，是否继续？\n（当前数据会被替换）")) return;
+        // 导入是「整体覆盖」，先把两边情况说清楚，别让人糊里糊涂把今天的活儿冲掉
+        var cur = dataCounts();
+        var msg = "文件里找到：订单 " + orders.length + " 条、还款 " + repays.length + " 条、退货 " + returns.length + " 条";
+        if(cur.total > 0){
+          msg += "\n\n本机现有：订单 " + cur.o + " 条、还款 " + cur.r + " 条、退货 " + cur.t + " 条（共 " + cur.total + " 笔）";
+          msg += "\n导入会【整体覆盖】本机这些数据，无法撤销。";
+          if(isDirty()){
+            msg += "\n\n⚠ 本机还有没导出的改动。";
+            msg += "\n继续的话，我会先把本机现在的数据另存一份 Excel，万一导错还能导回来。";
+          }
+        }
+        msg += "\n\n确定导入吗？";
+        if(!confirm(msg)) return;
+        // 本机有未导出的改动时，先另存一份再覆盖
+        if(cur.total > 0 && isDirty()){
+          try{ exportExcel(true); }catch(e){}
+        }
         data = { orders:orders, repayments:repays, returns:returns, rev: (data.rev||0) + 1 };
         save(); renderAll();
         if(storeName !== null){
@@ -2117,7 +2315,18 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     curMonth = shiftMonth(curMonth || thisMonthKey(), 1);
     renderMonthStats();
   });
-  el("btnExport").addEventListener("click", exportExcel);
+  el("btnData").addEventListener("click", openDataSheet);
+  el("dataModalClose").addEventListener("click", closeDataSheet);
+  el("dataModal").addEventListener("click", function(e){ if(e.target === el("dataModal")) closeDataSheet(); });
+  el("dataHintMain").addEventListener("click", function(){
+    var act = el("dataHintMain").getAttribute("data-act");
+    if(act === "import") el("importInput").click();
+    else exportExcel(false);
+    dismissHint();
+  });
+  el("dataHintClose").addEventListener("click", dismissHint);
+  // 注意：直接传 exportExcel 会把 click 事件当成 silent 参数，导致手动导出走了时间戳文件名
+  el("btnExport").addEventListener("click", function(){ exportExcel(false); });
   el("btnImport").addEventListener("click", function(){ el("importInput").click(); });
   el("autoBackupToggle").addEventListener("change", function(){
     settings.autoBackup = el("autoBackupToggle").checked;
