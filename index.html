@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2a78d6">
+<meta name="theme-color" content="#2168c4">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -11,21 +11,27 @@
 <title>欠款记账</title>
 <style>
   :root{
-    --bg:#f9f9f7; --surface:#fcfcfb; --surface2:#f1f0ec;
-    --ink:#0b0b0b; --ink2:#52514e; --muted:#898781;
-    --line:#e1e0d9; --border:rgba(11,11,11,0.10);
-    --accent:#2a78d6; --accent-ink:#ffffff;
-    --pos:#0ca30c; --pos-bg:rgba(12,163,12,0.12);
-    --neg:#d03b3b; --neg-bg:rgba(208,59,59,0.10);
+    --bg:#f2f1ec; --surface:#ffffff; --surface2:#f1f0ea;
+    --ink:#111110; --ink2:#4a4945; --muted:#5f5e59;
+    --line:#e4e2d9; --border:rgba(17,17,16,0.12);
+    --accent:#2168c4; --accent-ink:#ffffff;
+    --ring:rgba(33,104,196,0.18);
+    --pos:#0a730a; --pos-bg:rgba(10,115,10,0.13);
+    --neg:#c02f2f; --neg-bg:rgba(192,47,47,0.10);
+    --shadow:0 1px 2px rgba(17,17,16,0.05);
+    --shadow-lift:0 2px 8px rgba(17,17,16,0.07);
   }
   @media (prefers-color-scheme: dark){
     :root{
-      --bg:#0d0d0d; --surface:#1a1a19; --surface2:#232321;
-      --ink:#ffffff; --ink2:#c3c2b7; --muted:#898781;
-      --line:#2c2c2a; --border:rgba(255,255,255,0.10);
-      --accent:#3987e5; --accent-ink:#0b0b0b;
-      --pos:#0ca30c; --pos-bg:rgba(12,163,12,0.20);
-      --neg:#e66767; --neg-bg:rgba(230,103,103,0.16);
+      --bg:#0b0b0b; --surface:#171716; --surface2:#212120;
+      --ink:#ffffff; --ink2:#c9c8bd; --muted:#9b998f;
+      --line:#2e2e2b; --border:rgba(255,255,255,0.12);
+      --accent:#4a94ea; --accent-ink:#0b0b0b;
+      --ring:rgba(74,148,234,0.28);
+      --pos:#3fbf3f; --pos-bg:rgba(63,191,63,0.20);
+      --neg:#f07575; --neg-bg:rgba(240,117,117,0.16);
+      --shadow:0 1px 2px rgba(0,0,0,0.40);
+      --shadow-lift:0 2px 10px rgba(0,0,0,0.50);
     }
   }
   *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -37,11 +43,12 @@
   .app{ max-width:720px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; }
   .app-header{
     position:sticky; top:0; z-index:20; background:var(--surface);
-    border-bottom:1px solid var(--line); padding:14px 16px 10px;
+    border-bottom:1px solid var(--line); padding:15px 16px 12px;
+    box-shadow:var(--shadow);
   }
-  .app-header h1{ margin:0; font-size:20px; font-weight:700; }
-  .app-header p{ margin:2px 0 0; font-size:12px; color:var(--muted); }
-  main{ flex:1; padding:14px 14px 92px; }
+  .app-header h1{ margin:0; font-size:21px; font-weight:800; letter-spacing:.2px; }
+  .app-header p{ margin:3px 0 0; font-size:13px; color:var(--muted); line-height:1.5; }
+  main{ flex:1; padding:16px 14px 96px; }
   .bottom-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:20;
     background:var(--surface); border-top:1px solid var(--line);
@@ -49,125 +56,165 @@
     padding-bottom:env(safe-area-inset-bottom);
   }
   .nav-btn{
-    flex:1; border:0; background:none; padding:12px 4px 10px; cursor:pointer;
+    flex:1; border:0; background:none; padding:11px 4px 10px; cursor:pointer;
     position:relative;
-    color:var(--muted); font-size:13px; font-weight:600;
-    display:flex; flex-direction:column; align-items:center; gap:2px;
+    color:var(--muted); font-size:13px; font-weight:700;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
   }
-  .nav-btn .ico{ font-size:20px; line-height:1; }
+  .nav-btn .ico{ font-size:21px; line-height:1; }
   .nav-btn.active{ color:var(--accent); }
+  .nav-btn.active::before{
+    content:""; position:absolute; top:0; left:50%; transform:translateX(-50%);
+    width:28px; height:3px; border-radius:0 0 3px 3px; background:var(--accent);
+  }
 
   .tab-panel{ display:none; }
   .tab-panel.active{ display:block; }
 
   .card{
-    background:var(--surface); border:1px solid var(--line); border-radius:14px;
-    padding:16px; margin-bottom:14px;
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:16px; margin-bottom:14px; box-shadow:var(--shadow);
   }
-  .card h2{ margin:0 0 12px; font-size:16px; font-weight:700; }
-  .field{ margin-bottom:12px; }
-  .field label{ display:block; font-size:13px; color:var(--ink2); margin-bottom:6px; font-weight:600; }
+  .card h2{ margin:0 0 12px; font-size:16px; font-weight:800; }
+  .field{ margin-bottom:14px; }
+  .field label{ display:block; font-size:14px; color:var(--ink2); margin-bottom:7px; font-weight:700; }
   .field input{
-    width:100%; padding:12px 12px; font-size:16px; border:1px solid var(--border);
-    border-radius:10px; background:var(--surface2); color:var(--ink);
+    width:100%; padding:13px; font-size:16px; border:1px solid var(--border);
+    border-radius:11px; background:var(--surface2); color:var(--ink);
   }
-  .field input:focus{ outline:none; border-color:var(--accent); }
+  .field input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
   .row2{ display:flex; gap:10px; }
   .row2 .field{ flex:1; }
-  .item-row{ background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:8px; }
+  .item-row{ background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:11px; margin-bottom:9px; }
   .item-row .lr{ display:flex; gap:8px; align-items:center; }
-  .item-row .lr + .lr{ margin-top:8px; }
+  .item-row .lr + .lr{ margin-top:9px; }
   .item-row input{
-    width:100%; min-width:0; padding:10px 10px; font-size:16px; border:1px solid var(--border);
-    border-radius:8px; background:var(--surface); color:var(--ink);
+    width:100%; min-width:0; padding:11px; font-size:16px; border:1px solid var(--border);
+    border-radius:9px; background:var(--surface); color:var(--ink);
   }
-  .item-row input:focus{ outline:none; border-color:var(--accent); }
+  .item-row input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
   .item-row input.code{ flex:1.4; }
   .item-row input.price, .item-row input.qty{ flex:1; }
-  .item-row .sub{ font-size:12px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .item-row .sub{ font-size:13px; color:var(--muted); white-space:nowrap; font-variant-numeric:tabular-nums; }
   .item-row .del{
-    border:0; background:none; color:var(--neg); font-size:18px; line-height:1;
-    padding:4px 6px; cursor:pointer; font-weight:700;
+    border:0; background:none; color:var(--neg); font-size:20px; line-height:1;
+    min-width:40px; min-height:40px; padding:0; cursor:pointer; font-weight:700;
+    display:inline-flex; align-items:center; justify-content:center;
+    border-radius:10px; flex:none;
   }
+  .item-row .del:active{ background:var(--neg-bg); }
   .add-item{ margin-top:2px; }
   .calc-total{
     display:flex; align-items:center; justify-content:space-between;
-    background:var(--surface2); border-radius:10px; padding:12px; margin-bottom:12px;
+    background:var(--surface2); border:1px solid var(--border); border-radius:12px;
+    padding:13px 14px; margin-bottom:14px;
   }
-  .calc-total .cap{ font-size:13px; color:var(--ink2); font-weight:600; }
-  .calc-total .val{ font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .calc-total .cap{ font-size:14px; color:var(--ink2); font-weight:700; }
+  .calc-total .val{ font-size:21px; font-weight:800; font-variant-numeric:tabular-nums; }
 
   .btn{
-    width:100%; padding:14px; border:0; border-radius:12px; cursor:pointer;
-    font-size:16px; font-weight:700; background:var(--accent); color:var(--accent-ink);
+    width:100%; padding:15px 14px; border:0; border-radius:13px; cursor:pointer;
+    font-size:16px; font-weight:800; background:var(--accent); color:var(--accent-ink);
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    min-height:48px; letter-spacing:.3px; box-shadow:var(--shadow);
   }
-  .btn:active{ opacity:.85; }
+  .btn:active{ opacity:.85; transform:translateY(1px); }
   .btn.ghost{
-    background:var(--surface2); color:var(--ink2); font-weight:600;
+    background:var(--surface2); color:var(--ink2); font-weight:700;
+    border:1px solid var(--border); box-shadow:none;
   }
   .btn-row{ display:flex; gap:10px; margin-top:8px; }
 
-  .list-title{ font-size:13px; color:var(--muted); margin:16px 0 8px; font-weight:700; }
+  .list-title{
+    font-size:15px; color:var(--ink); margin:22px 0 10px; font-weight:800;
+    display:flex; align-items:center; gap:9px; letter-spacing:.2px;
+  }
+  .list-title::before{
+    content:""; width:3px; height:15px; border-radius:2px; background:var(--accent); flex:none;
+  }
   .item{
-    background:var(--surface); border:1px solid var(--line); border-radius:12px;
-    padding:12px 14px; margin-bottom:8px;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:13px 14px; margin-bottom:9px; box-shadow:var(--shadow);
   }
   .item .top{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
-  .item .name{ font-size:15px; font-weight:700; }
-  .item .date{ font-size:12px; color:var(--muted); white-space:nowrap; }
-  .item .mid{ font-size:13px; color:var(--ink2); margin-top:4px; font-variant-numeric:tabular-nums; }
+  .item .name{ font-size:15px; font-weight:800; }
+  .item .date{ font-size:13px; color:var(--muted); white-space:nowrap; }
+  .item .mid{ font-size:14px; color:var(--ink2); margin-top:5px; font-variant-numeric:tabular-nums; }
   .item .mid b{ color:var(--ink); }
-  .item .ops{ display:flex; gap:8px; margin-top:8px; }
+  .item .ops{ display:flex; gap:9px; margin-top:9px; }
   .op-btn{
     border:1px solid var(--border); background:var(--surface2); color:var(--ink2);
-    font-size:12px; padding:5px 12px; border-radius:8px; cursor:pointer; font-weight:600;
+    font-size:13px; padding:9px 15px; border-radius:10px; cursor:pointer; font-weight:700;
+    min-height:40px; display:inline-flex; align-items:center; justify-content:center;
   }
+  .op-btn:active{ opacity:.8; }
   .op-btn.del{ color:var(--neg); }
-  .tag{ display:inline-block; font-size:11px; font-weight:700; padding:1px 6px; border-radius:6px; margin-right:6px; background:var(--surface2); color:var(--ink2); vertical-align:1px; }
+  .tag{ display:inline-block; font-size:13px; font-weight:700; padding:2px 7px; border-radius:6px; margin-right:6px; background:var(--surface2); color:var(--ink2); vertical-align:1px; }
   .tag.owe{ background:var(--neg-bg); color:var(--neg); }
   .tag.pay{ background:var(--pos-bg); color:var(--pos); }
-  .empty{ text-align:center; color:var(--muted); font-size:13px; padding:28px 10px; }
+  .empty{ text-align:center; color:var(--muted); font-size:14px; padding:30px 10px; }
+
+  /* 首屏最重要的数字单独放大（总未还） */
+  .hero-stat{
+    position:relative; overflow:hidden;
+    background:var(--surface); border:1px solid var(--line); border-radius:16px;
+    padding:16px 18px 15px; margin-bottom:12px; box-shadow:var(--shadow-lift);
+  }
+  .hero-stat::after{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--accent);
+  }
+  .hero-stat .hero-label{ font-size:13px; color:var(--muted); font-weight:700; }
+  .hero-stat .num{
+    font-size:34px; font-weight:800; line-height:1.12; margin-top:3px;
+    font-variant-numeric:tabular-nums; letter-spacing:-.5px;
+  }
+  .hero-stat .num.neg{ color:var(--neg); }
+  .hero-stat .num.pos{ color:var(--pos); }
+  .hero-stat .hero-sub{ font-size:13px; color:var(--muted); margin-top:3px; }
 
   .stats{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
   .stat{
-    background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:13px 14px; box-shadow:var(--shadow);
   }
-  .stat .num{ font-size:22px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .stat .num{ font-size:20px; font-weight:800; font-variant-numeric:tabular-nums; }
   .stat .num.neg{ color:var(--neg); }
   .stat .num.pos{ color:var(--pos); }
-  .stat .lbl{ font-size:12px; color:var(--muted); margin-top:2px; }
-  .stat .mom-line{ margin-top:7px; font-size:12px; font-variant-numeric:tabular-nums; }
-  .mom{ font-weight:700; }
+  .stat .lbl{ font-size:13px; color:var(--muted); margin-top:3px; font-weight:600; }
+  .stat .mom-line{ margin-top:7px; font-size:13px; font-variant-numeric:tabular-nums; }
+  .mom{ font-weight:800; }
   .mom.good{ color:var(--pos); }
   .mom.bad{ color:var(--neg); }
-  .mom.flat{ color:var(--muted); font-weight:600; }
-  .mom-hint{ color:var(--muted); margin-left:4px; }
+  .mom.flat{ color:var(--muted); font-weight:700; }
+  .mom-hint{ color:var(--muted); margin-left:4px; font-size:13px; }
 
   .month-bar{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .month-bar .btn{ width:auto; flex:none; padding:8px 12px; font-size:13px; }
+  .month-bar .btn{ width:auto; flex:none; padding:11px 15px; font-size:15px; min-height:44px; }
   .month-bar .btn:disabled{ opacity:.4; }
-  .month-label{ font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; }
-  .month-note{ font-size:12px; color:var(--muted); line-height:1.5; margin:-2px 0 16px; }
+  .month-label{ font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .month-note{ font-size:13px; color:var(--muted); line-height:1.6; margin:0 0 18px; }
 
   .search-row{ margin-bottom:12px; }
   .search-row input{
-    width:100%; padding:13px 14px; font-size:16px; border:1px solid var(--border);
-    border-radius:12px; background:var(--surface); color:var(--ink);
+    width:100%; padding:14px 15px; font-size:16px; border:1px solid var(--border);
+    border-radius:13px; background:var(--surface); color:var(--ink); box-shadow:var(--shadow);
   }
-  .search-row input:focus{ outline:none; border-color:var(--accent); }
+  .search-row input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
   .toolbar{ display:flex; gap:10px; margin-bottom:14px; }
-  .toolbar .btn{ padding:11px; font-size:14px; }
+  .toolbar .btn{ padding:14px; font-size:15px; }
 
   .cust{
-    background:var(--surface); border:1px solid var(--line); border-radius:12px;
-    padding:13px 14px; margin-bottom:8px; cursor:pointer;
+    background:var(--surface); border:1px solid var(--line); border-radius:14px;
+    padding:14px; margin-bottom:9px; cursor:pointer; box-shadow:var(--shadow);
+    transition:transform .08s ease;
   }
+  .cust:active{ transform:scale(.995); background:var(--surface2); }
   .cust .top{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
-  .cust .name{ font-size:15px; font-weight:700; }
-  .cust .bal{ font-size:15px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .cust .name{ font-size:16px; font-weight:800; }
+  .cust .bal{ font-size:16px; font-weight:800; font-variant-numeric:tabular-nums; }
   .cust .bal.neg{ color:var(--neg); }
-  .cust .bal.pos{ color:var(--pos); font-size:13px; font-weight:700; }
-  .cust .sub{ font-size:12px; color:var(--muted); margin-top:3px; font-variant-numeric:tabular-nums; }
+  .cust .bal.pos{ color:var(--pos); font-size:14px; font-weight:800; }
+  .cust .sub{ font-size:13px; color:var(--muted); margin-top:4px; font-variant-numeric:tabular-nums; }
 
   .modal{
     position:fixed; inset:0; background:rgba(0,0,0,0.45); z-index:40;
@@ -179,34 +226,35 @@
     display:flex; flex-direction:column; overflow:hidden;
     border-radius:18px 18px 0 0;
   }
-  .modal .sheet-head{ flex:none; position:relative; padding:18px 16px 0; border-bottom:1px solid var(--line); }
+  .modal .sheet-head{ flex:none; position:relative; padding:18px 16px 0; border-bottom:1px solid var(--line); background:var(--surface); }
   .modal .sheet-body{ flex:1; min-height:0; overflow:auto; padding:0 16px 14px; -webkit-overflow-scrolling:touch; }
   .modal .sheet-foot{ flex:none; padding:12px 16px calc(12px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); }
-  .modal .sheet-head h3{ margin:0; font-size:18px; font-weight:800; padding-right:40px; }
-  .modal .hero{ margin:12px 0 4px; }
-  .modal .hero .num{ font-size:28px; font-weight:800; font-variant-numeric:tabular-nums; }
+  .modal .sheet-head h3{ margin:0; font-size:19px; font-weight:800; padding-right:52px; }
+  .modal .hero{ margin:14px 0 6px; }
+  .modal .hero .num{ font-size:30px; font-weight:800; font-variant-numeric:tabular-nums; }
   .modal .hero .num.neg{ color:var(--neg); }
   .modal .hero .num.pos{ color:var(--pos); }
-  .modal .hero .lbl{ font-size:12px; color:var(--muted); }
-  .modal .sumline{ font-size:13px; color:var(--ink2); margin-bottom:12px; font-variant-numeric:tabular-nums; }
+  .modal .hero .lbl{ font-size:13px; color:var(--muted); margin-top:2px; }
+  .modal .sumline{ font-size:14px; color:var(--ink2); margin-bottom:14px; font-variant-numeric:tabular-nums; line-height:1.6; }
   .close-x{
-    position:absolute; top:14px; right:14px; z-index:1;
+    position:absolute; top:10px; right:10px; z-index:1;
     border:1px solid var(--border); background:var(--surface);
-    color:var(--ink2); width:32px; height:32px; border-radius:50%; font-size:16px; cursor:pointer;
+    color:var(--ink2); width:44px; height:44px; border-radius:50%; font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
   }
-  .mini-table{ width:100%; border-collapse:collapse; font-size:13px; }
-  .mini-table th,.mini-table td{ text-align:left; padding:8px 6px; border-bottom:1px solid var(--line); }
-  .mini-table th{ color:var(--muted); font-weight:600; font-size:12px; }
+  .mini-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .mini-table th,.mini-table td{ text-align:left; padding:9px 6px; border-bottom:1px solid var(--line); }
+  .mini-table th{ color:var(--muted); font-weight:700; font-size:13px; }
   .mini-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
   .mini-table th.num{ text-align:right; }
-  .subhead{ font-size:13px; font-weight:700; margin:14px 0 6px; color:var(--ink2); }
+  .subhead{ font-size:15px; font-weight:800; margin:18px 0 8px; color:var(--ink); }
   .more-btn{ margin-top:10px; }
 
   .backup-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .backup-title{ font-size:14px; font-weight:700; }
-  .backup-sub{ font-size:12px; color:var(--muted); margin-top:2px; }
-  .backup-status{ font-size:12px; color:var(--muted); margin-top:8px; }
-  .backup-status.dirty{ color:var(--neg); }
+  .backup-title{ font-size:15px; font-weight:800; }
+  .backup-sub{ font-size:13px; color:var(--muted); margin-top:3px; line-height:1.5; }
+  .backup-status{ font-size:13px; color:var(--muted); margin-top:10px; }
+  .backup-status.dirty{ color:var(--neg); font-weight:700; }
   .switch{ position:relative; display:inline-block; width:48px; height:28px; flex:none; }
   .switch input{ opacity:0; width:0; height:0; }
   .slider{ position:absolute; inset:0; background:var(--line); border-radius:28px; transition:.2s; cursor:pointer; }
@@ -226,16 +274,17 @@
   }
   .bill-card img{ width:100%; height:auto; display:block; border-radius:8px; border:1px solid var(--line); }
   .bill-card .btn-row{ margin-top:12px; }
-  .bill-tip{ font-size:12px; color:var(--muted); margin-top:8px; line-height:1.5; }
+  .bill-tip{ font-size:13px; color:var(--muted); margin-top:9px; line-height:1.6; }
   .draft-tip{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
-    background:var(--surface2); border:1px solid var(--accent); border-radius:10px;
-    padding:10px 12px; margin-bottom:12px; font-size:12px; color:var(--ink2); line-height:1.4;
+    background:var(--surface2); border:1px solid var(--accent); border-radius:12px;
+    padding:11px 13px; margin-bottom:14px; font-size:13px; color:var(--ink2); line-height:1.5;
   }
-  .draft-tip .btn{ width:auto; flex:none; padding:8px 12px; font-size:13px; }
+  .draft-tip .btn{ width:auto; flex:none; padding:9px 14px; font-size:14px; min-height:40px; }
   .bill-x{
-    position:absolute; top:12px; right:14px; width:36px; height:36px; border-radius:50%;
-    border:0; background:rgba(255,255,255,0.18); color:#fff; font-size:16px; cursor:pointer;
+    position:absolute; top:10px; right:12px; width:44px; height:44px; border-radius:50%;
+    border:0; background:rgba(255,255,255,0.18); color:#fff; font-size:19px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; padding:0;
   }
 
   /* 保存/更新成功后的浮出提示（不打断操作，自动消失） */
@@ -258,7 +307,7 @@
   }
   .toast .msg{ flex:1; min-width:0; }
   .toast .msg em{
-    display:block; font-style:normal; font-size:12px; font-weight:600;
+    display:block; font-style:normal; font-size:13px; font-weight:600;
     color:var(--muted); margin-top:3px;
   }
 </style>
@@ -437,11 +486,15 @@
 
     <!-- 账单总览 -->
     <section id="tab-overview" class="tab-panel">
+      <div class="hero-stat">
+        <div class="hero-label">总未还（元）</div>
+        <div class="num" id="stat-remaining">0.00</div>
+        <div class="hero-sub">还欠着钱的客户合计</div>
+      </div>
       <div class="stats">
         <div class="stat"><div class="num" id="stat-customers">0</div><div class="lbl">欠款客户</div></div>
         <div class="stat"><div class="num" id="stat-debt">0.00</div><div class="lbl">总欠款（元）</div></div>
         <div class="stat"><div class="num" id="stat-paid">0.00</div><div class="lbl">总已还（元）</div></div>
-        <div class="stat"><div class="num" id="stat-remaining">0.00</div><div class="lbl">总未还（元）</div></div>
         <div class="stat"><div class="num" id="stat-refund">0.00</div><div class="lbl">总退货（元）</div></div>
       </div>
 
@@ -1143,6 +1196,19 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }
     touchDraft("order");
   }
+  // 已付多付检查：客户不可能多付钱。
+  // 注意不能拿「本单总额」比：客户之前还欠着钱时，本单少付或多付都正常，
+  // 必须拿「该客户总欠款（含本单）」来比，否则会把正常的大额结清误判成多付。
+  function orderOverpayInfo(customer, total, paid, isEdit, editId){
+    var base = customerSummary(customer).remaining;
+    if(isEdit){
+      var old = data.orders.find(function(x){ return x.id === editId; });
+      // 编辑时先把原订单的净贡献扣掉：原单贡献 = 总额 − 已付
+      if(old && old.customer === customer) base = round2(base - (num(old.total) - num(old.paid)));
+    }
+    var after = round2(base + total - paid);
+    return after < 0 ? { base: base, over: round2(-after) } : null;
+  }
   function onOrderSubmit(e){
     e.preventDefault();
     var isEdit = !!editingOrderId;
@@ -1153,6 +1219,22 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     if(items.length === 0){ alert("请至少填写一个货号的单价和数量"); return; }
     var total = round2(items.reduce(function(s,it){ return s+it.subtotal; },0));
     var paid = round2(num(el("oPaid").value));
+    var chk = orderOverpayInfo(customer, total, paid, isEdit, editingOrderId);
+    if(chk){
+      var head = chk.base > 0
+        ? "「"+customer+"」目前还欠 ¥"+fmtMoney(chk.base)
+        : (chk.base < 0
+            ? "「"+customer+"」目前已经是多付状态 ¥"+fmtMoney(-chk.base)
+            : "「"+customer+"」目前没有欠款");
+      var ok = confirm(
+        head + "\n" +
+        "本单总额 ¥"+fmtMoney(total)+"，已付 ¥"+fmtMoney(paid)+"\n\n" +
+        "算下来会变成多付 ¥"+fmtMoney(chk.over)+"\n" +
+        "客户不可能多付钱，请确认已付金额有没有输错。\n" +
+        "确定要这样记录吗？"
+      );
+      if(!ok) return;
+    }
     var rec = { id: editingOrderId || genId("o"), customer:customer, date: el("oDate").value || todayStr(), items:items, total:total, paid:paid, note: el("oNote").value.trim() };
     if(editingOrderId){
       var i = data.orders.findIndex(function(x){ return x.id===editingOrderId; });
@@ -1295,20 +1377,20 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     text("欠款账单", {size: settings.storeName ? 15 : 24, weight: settings.storeName ? "normal" : "bold", align:"center", color: settings.storeName ? "#52514e" : "#0b0b0b", gap:16});
 
     text("客户：" + name, {size:20, weight:"bold", gap:2});
-    text("日期：" + todayStr(), {size:13, color:"#898781", gap:16});
+    text("日期：" + todayStr(), {size:13, color:"#6b6a64", gap:16});
 
     var bh = 72, bgap = 8, bw = Math.floor((inner - bgap*3)/4);
     var sums = [
       {label:"欠款总额", val:fmtMoney(s.totalDebt), color:"#0b0b0b"},
-      {label:"已还总额", val:fmtMoney(s.totalPaid), color:"#0ca30c"},
+      {label:"已还总额", val:fmtMoney(s.totalPaid), color:"#0a730a"},
       {label:"退货总额", val:fmtMoney(s.refund), color:"#8a6d00"},
-      {label:"未还金额", val:(s.remaining>0 ? fmtMoney(s.remaining) : "已还清"), color:(s.remaining>0 ? "#d03b3b" : "#0ca30c")}
+      {label:"未还金额", val:(s.remaining>0 ? fmtMoney(s.remaining) : "已还清"), color:(s.remaining>0 ? "#c02f2f" : "#0a730a")}
     ];
     sums.forEach(function(b, i){
       var bx = PAD + i*(bw + bgap);
       items.push({type:"rect", x:bx, y:y, w:bw, h:bh, fill:"#f1f0ec", radius:10});
       ctx.font = billFont(12, "normal");
-      items.push({type:"text", x:bx+bw/2, y:y+13, lines:wrapText(measure, b.label, bw-14), size:12, weight:"normal", color:"#898781", align:"center", lh:17});
+      items.push({type:"text", x:bx+bw/2, y:y+13, lines:wrapText(measure, b.label, bw-14), size:12, weight:"normal", color:"#6b6a64", align:"center", lh:17});
       ctx.font = billFont(15, "bold");
       items.push({type:"text", x:bx+bw/2, y:y+38, lines:wrapText(measure, b.val, bw-14), size:15, weight:"bold", color:b.color, align:"center", lh:20});
     });
@@ -1344,14 +1426,14 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       if(shown > 0 && total > shown){
         items.push({type:"text", x:PAD+inner, y:hy+5,
           lines:["最近 "+BILL_DAYS+" 天："+mdLabel(billFrom)+"、"+mdLabel(billTo)+"（共 "+shown+" 条）"],
-          size:11, weight:"normal", color:"#898781", align:"right", lh:15});
+          size:11, weight:"normal", color:"#6b6a64", align:"right", lh:15});
       }
     }
     function noRows(total){ return total > 0 ? "（最近 "+BILL_DAYS+" 天无记录）" : "（无）"; }
 
     headNote("欠款明细", orders.length, ordersWin.length);
     if(ordersWin.length === 0){
-      text(noRows(orders.length), {size:13, color:"#898781", gap:10});
+      text(noRows(orders.length), {size:13, color:"#6b6a64", gap:10});
     } else {
       tableHead([
         {label:"日期", x:PAD, w:C_DATE},
@@ -1376,7 +1458,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
 
     headNote("还款明细", repays.length, repaysWin.length);
     if(repaysWin.length === 0){
-      text(noRows(repays.length), {size:13, color:"#898781", gap:10});
+      text(noRows(repays.length), {size:13, color:"#6b6a64", gap:10});
     } else {
       var amtW = 80, noteGap = 12;
       var xAmtEnd = PAD + C_DATE + amtW;
@@ -1390,7 +1472,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       repaysWin.forEach(function(r){
         tableRow([
           {text:r.date||"", x:PAD, w:C_DATE},
-          {text:fmtMoney(r.amount), x:xAmtEnd, w:amtW, align:"right", color:"#0ca30c"},
+          {text:fmtMoney(r.amount), x:xAmtEnd, w:amtW, align:"right", color:"#0a730a"},
           {text:r.note||"", x:xNote, w:noteW}
         ]);
       });
@@ -1399,7 +1481,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     y += 4;
     headNote("退货明细", returns.length, returnsWin.length);
     if(returnsWin.length === 0){
-      text(noRows(returns.length), {size:13, color:"#898781", gap:10});
+      text(noRows(returns.length), {size:13, color:"#6b6a64", gap:10});
     } else {
       var rTotW = 74;
       var rDetailW = inner - C_DATE - rTotW;
@@ -1422,7 +1504,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }
 
     y += 4;
-    text("本账单由「欠款记账」生成 · " + todayStr(), {size:11, color:"#898781", align:"center", gap:4});
+    text("本账单由「欠款记账」生成 · " + todayStr(), {size:11, color:"#6b6a64", align:"center", gap:4});
 
     return { width:W, height: Math.round(y + PAD), items:items };
   }
