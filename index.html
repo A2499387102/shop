@@ -103,6 +103,23 @@
   .storage-text{ font-size:13px; color:var(--muted); line-height:1.65; margin-top:7px; }
   .storage-text.caution{ color:var(--warn); font-weight:700; }
   .storage-text.danger{ color:var(--neg); font-weight:700; }
+
+  /* 归档旧年份 */
+  .archive{
+    margin-top:18px; padding-top:16px; border-top:1px solid var(--line);
+  }
+  .archive-head{ font-size:15px; font-weight:800; color:var(--ink); margin-bottom:5px; }
+  .archive-sub{ font-size:13px; color:var(--muted); line-height:1.65; margin-bottom:12px; }
+  .archive-label{ display:block; font-size:13px; font-weight:700; color:var(--ink2); margin-bottom:6px; }
+  .archive select{
+    width:100%; min-height:48px; padding:11px 12px; font-size:16px;
+    border:1px solid var(--border); border-radius:12px;
+    background:var(--surface); color:var(--ink);
+  }
+  .archive-count{ font-size:13px; color:var(--ink2); line-height:1.65; margin:10px 0 12px; }
+  .archive .btn{ width:100%; margin-top:9px; }
+  .archive .btn[disabled]{ opacity:.45; }
+  .archive-hint{ font-size:13px; color:var(--muted); line-height:1.65; margin-top:10px; }
   main{ flex:1; padding:16px 14px 96px; }
   .bottom-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:20;
@@ -675,6 +692,17 @@
         · <b>导入</b>：只在换手机、清了浏览器数据、或账本出错要用备份恢复时才点。<br>
         · 导入会<b>整体覆盖</b>本机数据；如果本机还有没导出的改动，会先帮你另存一份再覆盖。
       </div>
+
+      <div class="archive" id="archiveBox" style="display:none">
+        <div class="archive-head">归档旧年份</div>
+        <div class="archive-sub">把「某年及以前」的记录导成一个 Excel 留档，再从本机删掉。这样本机只留最近一两年，永远不会存满。</div>
+        <label class="archive-label" for="archiveYear">清理范围</label>
+        <select id="archiveYear"></select>
+        <div class="archive-count" id="archiveCount"></div>
+        <button type="button" class="btn ghost" id="btnArchiveExport">① 导出该年的 Excel</button>
+        <button type="button" class="btn" id="btnArchiveDelete" disabled>② 从本机删除该年</button>
+        <div class="archive-hint" id="archiveHint"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -949,12 +977,14 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     }catch(e){}
     return null;
   }
-  // 导入前把当前数据留一份底。存在 localStorage 里，不依赖下载，任何浏览器都能用。
-  function stashBeforeImport(){
+  // 做破坏性操作（导入覆盖 / 归档删除）前，把当前数据留一份底。
+  // 存在 localStorage 里，不依赖下载，任何浏览器都能用。
+  function stashBeforeImport(kind){
     try{
       localStorage.setItem(PRE_IMPORT_KEY, JSON.stringify({
         at: nowText(),
         ts: new Date().getTime(),
+        kind: kind || "import",
         orders: data.orders || [],
         repayments: data.repayments || [],
         returns: data.returns || [],
@@ -966,7 +996,8 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   function restorePreImport(){
     var p = readPreImport();
     if(!p) return;
-    if(!confirm("要用「" + p.at + "」导入前的数据覆盖现在的账本吗？\n（现在这批数据会被替换掉）")) return;
+    var what = (p.kind === "archive") ? "清理前" : "导入前";
+    if(!confirm("要用「" + p.at + "」" + what + "的数据覆盖现在的账本吗？\n（现在这批数据会被替换掉）")) return;
     data = { orders:p.orders || [], repayments:p.repayments || [], returns:p.returns || [], rev:(data.rev||0) + 1 };
     if(typeof p.storeName === "string"){
       settings.storeName = p.storeName;
@@ -976,7 +1007,60 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     try{ localStorage.removeItem(PRE_IMPORT_KEY); }catch(e){}
     save(); renderAll(); updateBackupUI();
     closeDataSheet();
-    alert("已恢复到导入前的数据。记得再点「导出 Excel 备份」存一份。");
+    alert("已恢复到" + what + "的数据。记得再点「导出 Excel 备份」存一份。");
+  }
+
+  // ---------- 归档旧年份：导出「某年及以前」→ 再从本机删除 ----------
+  var archiveExportedYear = "";   // 本次已导出归档的年份，防止「没导出就删」
+
+  function yearsWithData(){
+    var seen = {}, out = [];
+    [data.orders, data.repayments, data.returns].forEach(function(arr){
+      (arr || []).forEach(function(x){
+        var y = (x && x.date) ? String(x.date).slice(0, 4) : "";
+        if(/^[0-9]{4}$/.test(y) && !seen[y]){ seen[y] = 1; out.push(y); }
+      });
+    });
+    out.sort();
+    return out;
+  }
+  function pickUpToYear(y){
+    function inRange(x){ return !!(x && x.date) && String(x.date).slice(0, 4) <= y; }
+    return {
+      orders: (data.orders || []).filter(inRange),
+      repayments: (data.repayments || []).filter(inRange),
+      returns: (data.returns || []).filter(inRange)
+    };
+  }
+  function renderArchiveUI(){
+    var box = el("archiveBox"), sel = el("archiveYear"), cnt = el("archiveCount"),
+        del = el("btnArchiveDelete"), hint = el("archiveHint");
+    if(!box || !sel) return;
+    var years = yearsWithData();
+    if(!years.length){ box.style.display = "none"; return; }
+    box.style.display = "";
+    var prev = sel.value;
+    sel.innerHTML = years.map(function(y){
+      return '<option value="' + y + '">' + y + " 年及以前</option>";
+    }).join("");
+    if(prev && years.indexOf(prev) >= 0) sel.value = prev;
+    var y = sel.value || years[0];
+    var pick = pickUpToYear(y);
+    var n = pick.orders.length + pick.repayments.length + pick.returns.length;
+    if(cnt){
+      cnt.textContent = y + " 年及以前：订单 " + pick.orders.length + " 条 / 还款 " +
+        pick.repayments.length + " 条 / 退货 " + pick.returns.length + " 条，共 " + n + " 条";
+    }
+    if(del) del.disabled = (n === 0) || (archiveExportedYear !== y);
+    if(hint){
+      if(n === 0){
+        hint.textContent = "这个范围没有记录。";
+      } else if(archiveExportedYear === y){
+        hint.textContent = "归档文件已导出，现在可以点②从本机删除。删除后 7 天内还能在面板顶部一键恢复。";
+      } else {
+        hint.textContent = "请先点①导出并确认文件存好，②才会生效。归档文件是留档用的，不能合并回本机。";
+      }
+    }
   }
   function updateBackupUI(){
     var st = el("backupStatus");
@@ -994,6 +1078,7 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     updateHeaderSub();
     renderDataSheet();
     renderStorageUI();
+    renderArchiveUI();
     updateDataHint();
   }
 
@@ -1064,7 +1149,8 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
         }
       }
       if(pn > 0){
-        rt.innerHTML = "导入前（" + pre.at + "）的数据还留着一份：订单 " +
+        var preLabel = (pre.kind === "archive") ? "清理前" : "导入前";
+        rt.innerHTML = preLabel + "（" + pre.at + "）的数据还留着一份：订单 " +
           (pre.orders || []).length + " / 还款 " + (pre.repayments || []).length +
           " / 退货 " + (pre.returns || []).length + " 笔";
         rb.style.display = "";
@@ -2095,10 +2181,33 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
 
   // ---------- Excel 导出 / 导入 ----------
-  function exportExcel(silent){
+  // 按任意一组记录算「汇总」表（归档导出用，不动本机数据）
+  function summaryRowsFor(src){
+    var acc = {}, order = [];
+    function slot(n){
+      n = n || "（未填客户）";
+      if(!acc[n]){ acc[n] = { debt:0, paid:0, refund:0 }; order.push(n); }
+      return acc[n];
+    }
+    (src.orders || []).forEach(function(o){ var a = slot(o.customer); a.debt += num(o.total); a.paid += num(o.paid); });
+    (src.repayments || []).forEach(function(r){ var a = slot(r.customer); a.paid += num(r.amount); });
+    (src.returns || []).forEach(function(t){ var a = slot(t.customer); a.refund += num(t.total); });
+    var rows = [["客户名称","欠款总额","已还总额","退货总额","未还金额"]];
+    order.sort(zhCompare).forEach(function(n){
+      var a = acc[n];
+      rows.push([n, round2(a.debt), round2(a.paid), round2(a.refund), round2(a.debt - a.paid - a.refund)]);
+    });
+    return rows;
+  }
+
+  // src / label 不传 = 导出整份账本；传了 = 只导这部分（归档用，且不算「整份已备份」）
+  function exportExcel(silent, src, label){
     if(typeof XLSX === "undefined"){ alert("Excel 组件加载失败，请重新复制完整的 index.html 文件后再试"); return; }
+    var subset = !!src;
+    src = src || data;
+
     var aoaOrders = [["日期","客户名称","订单号","货号","单价","数量","小计","已付","备注"]];
-    data.orders.slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(o){
+    (src.orders || []).slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(o){
       var items = (o.items && o.items.length) ? o.items : [{itemCode:"", price:0, qty:0, subtotal:0}];
       items.forEach(function(it, idx){
         aoaOrders.push([
@@ -2109,15 +2218,19 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       });
     });
     var aoaRepays = [["日期","客户名称","还款金额","备注"]];
-    data.repayments.slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(r){
+    (src.repayments || []).slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(r){
       aoaRepays.push([r.date, r.customer, num(r.amount), r.note||""]);
     });
     var aoaSum = [["客户名称","欠款总额","已还总额","退货总额","未还金额"]];
-    overview().list.forEach(function(x){
-      aoaSum.push([x.name, x.s.totalDebt, x.s.totalPaid, x.s.refund, x.s.remaining]);
-    });
+    if(subset){
+      aoaSum = summaryRowsFor(src);
+    } else {
+      overview().list.forEach(function(x){
+        aoaSum.push([x.name, x.s.totalDebt, x.s.totalPaid, x.s.refund, x.s.remaining]);
+      });
+    }
     var aoaReturns = [["日期","客户名称","退货号","货号","单价","数量","小计","备注"]];
-    data.returns.slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(t){
+    (src.returns || []).slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(t){
       var items = (t.items && t.items.length) ? t.items : [{itemCode:"", price:0, qty:0, subtotal:0}];
       items.forEach(function(it, idx){
         aoaReturns.push([
@@ -2133,8 +2246,10 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaReturns), "退货记录");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoaSum), "汇总");
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["项目","值"],["店名", settings.storeName||""]]), "设置");
-    XLSX.writeFile(wb, (silent ? "欠款账本_"+nowStamp() : "欠款账本_"+todayStr()) + ".xlsx");
-    setBackedUp();
+    var fname = label ? ("欠款账本_" + label)
+      : (silent ? "欠款账本_" + nowStamp() : "欠款账本_" + todayStr());
+    XLSX.writeFile(wb, fname + ".xlsx");
+    if(!label) setBackedUp();   // 只有导出整份才算「已备份」
   }
 
   function findSheet(wb, names){
@@ -2524,6 +2639,41 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   });
   el("dataHintClose").addEventListener("click", dismissHint);
   el("dataRestoreBtn").addEventListener("click", restorePreImport);
+  el("archiveYear").addEventListener("change", function(){
+    archiveExportedYear = "";
+    renderArchiveUI();
+  });
+  el("btnArchiveExport").addEventListener("click", function(){
+    var y = el("archiveYear").value;
+    if(!y) return;
+    var pick = pickUpToYear(y);
+    var n = pick.orders.length + pick.repayments.length + pick.returns.length;
+    if(!n){ alert("这个范围没有记录。"); return; }
+    exportExcel(false, pick, y + "年及以前归档");
+    archiveExportedYear = y;
+    renderArchiveUI();
+  });
+  el("btnArchiveDelete").addEventListener("click", function(){
+    var y = el("archiveYear").value;
+    if(!y) return;
+    if(archiveExportedYear !== y){ alert("请先点①导出该年的 Excel，确认归档文件存好后再删除。"); return; }
+    var pick = pickUpToYear(y);
+    var n = pick.orders.length + pick.repayments.length + pick.returns.length;
+    if(!n) return;
+    if(!confirm("将从本机删除 " + y + " 年及以前的 " + n + " 条记录：\n订单 " + pick.orders.length +
+        " 条、还款 " + pick.repayments.length + " 条、退货 " + pick.returns.length + " 条\n\n" +
+        "删除后本机就查不到这些记录了（7 天内可在面板顶部一键恢复）。确定吗？")) return;
+    stashBeforeImport("archive");
+    function keep(x){ return !(x && x.date) || String(x.date).slice(0, 4) > y; }
+    data.orders = (data.orders || []).filter(keep);
+    data.repayments = (data.repayments || []).filter(keep);
+    data.returns = (data.returns || []).filter(keep);
+    bumpRev();
+    afterChange();
+    archiveExportedYear = "";
+    renderArchiveUI();
+    alert("已从本机清理 " + n + " 条记录，存储已释放。建议再点「导出 Excel 备份」存一份新的完整账本。");
+  });
   // 注意：直接传 exportExcel 会把 click 事件当成 silent 参数，导致手动导出走了时间戳文件名
   el("btnExport").addEventListener("click", function(){ exportExcel(false); });
   el("btnImport").addEventListener("click", function(){ el("importInput").click(); });
