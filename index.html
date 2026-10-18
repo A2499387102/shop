@@ -18,6 +18,7 @@
     --ring:rgba(33,104,196,0.18);
     --pos:#0a730a; --pos-bg:rgba(10,115,10,0.13);
     --neg:#c02f2f; --neg-bg:rgba(192,47,47,0.10);
+    --warn:#8a5a00; --warn-bg:rgba(138,90,0,0.12);
     --shadow:0 1px 2px rgba(17,17,16,0.05);
     --shadow-lift:0 2px 8px rgba(17,17,16,0.07);
   }
@@ -30,6 +31,7 @@
       --ring:rgba(74,148,234,0.28);
       --pos:#3fbf3f; --pos-bg:rgba(63,191,63,0.20);
       --neg:#f07575; --neg-bg:rgba(240,117,117,0.16);
+      --warn:#e3a63c; --warn-bg:rgba(227,166,60,0.16);
       --shadow:0 1px 2px rgba(0,0,0,0.40);
       --shadow-lift:0 2px 10px rgba(0,0,0,0.50);
     }
@@ -91,6 +93,16 @@
   }
   .data-restore-text{ font-size:13px; color:var(--ink2); line-height:1.65; margin-bottom:9px; }
   .data-restore .btn{ min-height:44px; padding:10px 14px; font-size:14px; }
+
+  /* 本机存储占用 */
+  .storage{ margin-top:12px; }
+  .storage-bar{ height:8px; border-radius:4px; background:var(--surface2); overflow:hidden; }
+  .storage-fill{ height:100%; width:0; background:var(--pos); }
+  .storage-fill.caution{ background:var(--warn); }
+  .storage-fill.danger{ background:var(--neg); }
+  .storage-text{ font-size:13px; color:var(--muted); line-height:1.65; margin-top:7px; }
+  .storage-text.caution{ color:var(--warn); font-weight:700; }
+  .storage-text.danger{ color:var(--neg); font-weight:700; }
   main{ flex:1; padding:16px 14px 96px; }
   .bottom-nav{
     position:fixed; left:0; right:0; bottom:0; z-index:20;
@@ -343,6 +355,8 @@
     transition:opacity .22s ease, transform .22s ease, visibility .22s;
   }
   .toast.show{ opacity:1; visibility:visible; transform:translateY(0); }
+  .toast.danger{ border-color:var(--neg); }
+  .toast.danger .ico{ background:var(--neg); }
   .toast .ico{
     flex:none; width:22px; height:22px; border-radius:50%;
     background:var(--pos); color:#fff; font-size:13px; font-weight:800;
@@ -624,6 +638,7 @@
     </div>
     <div class="sheet-body">
       <div class="data-summary" id="dataSummary"></div>
+      <div class="storage" id="storageBox"></div>
 
       <div class="data-restore" id="dataRestore" style="display:none">
         <div class="data-restore-text" id="dataRestoreText"></div>
@@ -721,6 +736,10 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   var LAST_AT_KEY = "debtLedger.lastBackupAt.v1";   // 上次导出/备份的日期
   var HINT_KEY = "debtLedger.hintDay.v1";           // 进站提示当天点过「知道了」就不再显示
   var PRE_IMPORT_KEY = "debtLedger.preImport.v1";   // 导入前自动留的底，可一键恢复
+  // 浏览器 localStorage 的通用上限约 5 MiB；它按 UTF-16 计，也就是约 524 万字符。
+  // 实测（Chrome）：5,242,867 字符，单条订单约 275 字符 → 约 1.9 万条。
+  var LS_CHARS_CAP = 5 * 1024 * 1024;
+  var saveFailed = false;   // 上一次 save() 是否没写进去（内存有、本机没有）
   var data = load();
   if(data.photosPurged){ delete data.photosPurged; save(); }
   var settings = loadSettings();
@@ -800,7 +819,18 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
   function save(){
     invalidateCalc();   // 数据变了，汇总缓存作废（所有改动都会经过这里）
-    try{ localStorage.setItem(LS_KEY, JSON.stringify(data)); }catch(e){ alert("保存失败，浏览器存储可能已满："+e.message); }
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+      saveFailed = false;
+    }catch(e){
+      // 存不下时最危险的不是报错，而是「看着存好了，其实没落盘」。
+      // 内存里的数据仍然保留，由页面顶部红色提示条一直催着导出。
+      if(!saveFailed){
+        saveFailed = true;
+        alert("本机存储已满，这次的改动暂时只保存在当前页面，关掉或刷新就没了。\n\n请马上点右上角「数据」→「导出 Excel 备份」把数据存下来，再清理早年的旧记录。");
+      }
+      saveFailed = true;
+    }
   }
   function loadSettings(){
     try{
@@ -860,6 +890,58 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     var d = new Date();
     return todayStr() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
   }
+
+  // ---------- 本机存储占用（防止记着记着存不下） ----------
+  // 配额是「按整个站点」算的，所以把本 origin 上所有键都算进去，而不只是本工具的。
+  function storageChars(){
+    var n = 0;
+    try{
+      for(var i = 0; i < localStorage.length; i++){
+        var k = localStorage.key(i);
+        n += k.length + (localStorage.getItem(k) || "").length;
+      }
+    }catch(e){}
+    return n;
+  }
+  function storagePercent(){ return Math.min(100, storageChars() / LS_CHARS_CAP * 100); }
+  function fmtStoreSize(chars){
+    var kb = chars * 2 / 1024;   // localStorage 按 UTF-16 存，1 字符 ≈ 2 字节
+    if(kb >= 1024) return (kb / 1024).toFixed(1) + " MB";
+    return Math.max(1, Math.round(kb)) + " KB";
+  }
+  // 平均一条记录占多少字符（用来换算「还能记多少条」）
+  function charsPerRecord(){
+    var total = dataCounts().total;
+    if(total > 0){
+      try{ return Math.max(1, (localStorage.getItem(LS_KEY) || "").length / total); }catch(e){}
+    }
+    return 275;   // 没有数据时用实测均值
+  }
+  function renderStorageUI(){
+    var box = el("storageBox");
+    if(!box) return;
+    var chars = storageChars();
+    var pct = Math.min(100, chars / LS_CHARS_CAP * 100);
+    var left = Math.max(0, Math.floor((LS_CHARS_CAP - chars) / charsPerRecord()));
+    var cls = saveFailed ? "danger" : (pct >= 90 ? "danger" : (pct >= 70 ? "caution" : ""));
+    var tip;
+    if(saveFailed){
+      tip = "本机存储已满，刚才的改动还没写进本机。请先导出备份，再清理旧记录。";
+    } else if(pct >= 90){
+      tip = "已用 " + pct.toFixed(0) + "%（" + fmtStoreSize(chars) + " / " + fmtStoreSize(LS_CHARS_CAP) + "），新的记录快存不进去了。请先导出备份，再清理早年的旧记录。";
+    } else if(pct >= 70){
+      tip = "已用 " + pct.toFixed(0) + "%（" + fmtStoreSize(chars) + " / " + fmtStoreSize(LS_CHARS_CAP) + "）。按现在的记录量还能记约 " +
+        left.toLocaleString("zh-CN") + " 条，建议找时间导出备份、清掉旧年份。";
+    } else {
+      tip = "已用 " + fmtStoreSize(chars) + " / " + fmtStoreSize(LS_CHARS_CAP) + "（" + pct.toFixed(1) + "%）· 按现在的记录量还能记约 " +
+        left.toLocaleString("zh-CN") + " 条";
+    }
+    box.innerHTML =
+      '<div class="storage-bar"><div class="storage-fill ' + cls + '" style="width:' +
+      Math.max(2, Math.round(pct)) + '%"></div></div>' +
+      '<div class="storage-text ' + cls + '">' + tip + '</div>';
+  }
+
   function readPreImport(){
     try{
       var raw = localStorage.getItem(PRE_IMPORT_KEY);
@@ -908,9 +990,10 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       }
     }
     var dot = el("dataDot");
-    if(dot) dot.classList.toggle("show", isDirty());
+    if(dot) dot.classList.toggle("show", isDirty() || saveFailed);
     updateHeaderSub();
     renderDataSheet();
+    renderStorageUI();
     updateDataHint();
   }
 
@@ -919,9 +1002,20 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     var sub = el("headerSub");
     if(!sub) return;
     var c = dataCounts();
+    var pct = storagePercent();
+    if(saveFailed){
+      sub.textContent = "存储已满，刚才的改动没写进本机 · 请立即导出";
+      sub.className = "warn";
+      return;
+    }
     if(c.total === 0){
       sub.textContent = "还没有数据 · 点右上角「数据」可导入之前的 Excel";
       sub.className = "hint";
+      return;
+    }
+    if(pct >= 90){
+      sub.textContent = "本机 " + c.total + " 笔记录 · 存储已用 " + pct.toFixed(0) + "%，请导出后清理旧记录";
+      sub.className = "warn";
       return;
     }
     if(isDirty()){
@@ -989,15 +1083,32 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     updateDataHint();
   }
   function updateDataHint(){
-    var box = el("dataHint"), txt = el("dataHintText"), main = el("dataHintMain");
+    var box = el("dataHint"), txt = el("dataHintText"), main = el("dataHintMain"), close = el("dataHintClose");
     if(!box || !txt || !main) return;
     var c = dataCounts();
-    var mode = c.total === 0 ? "empty" : (isDirty() ? "dirty" : null);
-    if(!mode || hintDismissedToday()){
+    var pct = storagePercent();
+    var mode = null;
+    if(saveFailed) mode = "savefail";
+    else if(pct >= 90) mode = "full";
+    else if(c.total === 0) mode = "empty";
+    else if(isDirty()) mode = "dirty";
+
+    var forced = (mode === "savefail");   // 存不下时不给「知道了」，必须处理
+    if(!mode || (!forced && hintDismissedToday())){
       box.style.display = "none";
       return;
     }
-    if(mode === "empty"){
+    if(close) close.style.display = forced ? "none" : "";
+
+    if(mode === "savefail"){
+      txt.innerHTML = "⚠ <b>本机存储已满</b>，刚才的改动还<b>没写进本机</b>，关掉或刷新就没了。请先导出把数据存下来。";
+      main.textContent = "立即导出";
+      main.setAttribute("data-act", "export");
+    } else if(mode === "full"){
+      txt.innerHTML = "本机存储已用 <b>" + pct.toFixed(0) + "%</b>，快存不下新记录了。建议先导出备份，再清掉早年的旧记录。";
+      main.textContent = "立即导出";
+      main.setAttribute("data-act", "export");
+    } else if(mode === "empty"){
       txt.innerHTML = "第一次用？如果以前的账记在 <b>Excel</b> 里，先点「导入 Excel」把数据搬进来，别从现在起记成两本账。";
       main.textContent = "导入 Excel";
       main.setAttribute("data-act", "import");
@@ -1112,9 +1223,14 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
 
   // ---------- 保存/更新成功提示 ----------
   var toastTimer = null;
-  function showToast(title, tip){
+  function showToast(title, tip, kind){
     var box = el("toast"), msg = el("toastMsg");
     if(!box || !msg) return;
+    var ico = box.querySelector(".ico");
+    if(ico){
+      ico.textContent = (kind === "danger") ? "!" : "✓";
+      box.classList.toggle("danger", kind === "danger");
+    }
     msg.innerHTML = "";
     var line = document.createElement("div");
     line.textContent = title;
@@ -1133,6 +1249,11 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
   }
   // 三种记录保存/更新后统一提示，顺带提醒导出备份
   function savedToast(what, isEdit){
+    // 存储已满时不能再说「已保存」——那条记录其实只在当前页面里
+    if(saveFailed){
+      showToast(what + "没写进本机", "存储已满，请立即导出备份", "danger");
+      return;
+    }
     showToast((isEdit ? what + "已更新" : what + "已保存"), "记得导出 Excel 备份哦");
   }
 
