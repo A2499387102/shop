@@ -117,6 +117,7 @@
     background:var(--surface); color:var(--ink);
   }
   .archive-count{ font-size:13px; color:var(--ink2); line-height:1.65; margin:10px 0 12px; }
+  .archive-count.warn{ color:var(--warn); font-weight:700; }
   .archive .btn{ width:100%; margin-top:9px; }
   .archive .btn[disabled]{ opacity:.45; }
   .archive-hint{ font-size:13px; color:var(--muted); line-height:1.65; margin-top:10px; }
@@ -1032,6 +1033,12 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
       returns: (data.returns || []).filter(inRange)
     };
   }
+  // 这个范围里还没还清的钱：>0 说明有人旧账没结，归档会把欠款一起藏起来
+  function unpaidOf(pick){
+    var s = 0;
+    summaryRowsFor(pick).slice(1).forEach(function(row){ s += num(row[4]); });
+    return round2(s);
+  }
   function renderArchiveUI(){
     var box = el("archiveBox"), sel = el("archiveYear"), cnt = el("archiveCount"),
         del = el("btnArchiveDelete"), hint = el("archiveHint");
@@ -1047,9 +1054,14 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     var y = sel.value || years[0];
     var pick = pickUpToYear(y);
     var n = pick.orders.length + pick.repayments.length + pick.returns.length;
+    var unpaid = unpaidOf(pick);
     if(cnt){
       cnt.textContent = y + " 年及以前：订单 " + pick.orders.length + " 条 / 还款 " +
-        pick.repayments.length + " 条 / 退货 " + pick.returns.length + " 条，共 " + n + " 条";
+        pick.repayments.length + " 条 / 退货 " + pick.returns.length + " 条，共 " + n + " 条" +
+        (unpaid > 0.005
+          ? "。注意：这个范围还有 ¥" + fmtMoney(unpaid) + " 没还清，归档后本机就看不到这笔欠款了。"
+          : "");
+      cnt.className = "archive-count" + (unpaid > 0.005 ? " warn" : "");
     }
     if(del) del.disabled = (n === 0) || (archiveExportedYear !== y);
     if(hint){
@@ -2660,9 +2672,11 @@ w[f]=1}i[b]=f;}}for(g=l.s.r+n;g<=l.e.r;++g){if((T[g]||{}).hidden)continue;var A=
     var pick = pickUpToYear(y);
     var n = pick.orders.length + pick.repayments.length + pick.returns.length;
     if(!n) return;
+    var unpaid = unpaidOf(pick);
     if(!confirm("将从本机删除 " + y + " 年及以前的 " + n + " 条记录：\n订单 " + pick.orders.length +
-        " 条、还款 " + pick.repayments.length + " 条、退货 " + pick.returns.length + " 条\n\n" +
-        "删除后本机就查不到这些记录了（7 天内可在面板顶部一键恢复）。确定吗？")) return;
+        " 条、还款 " + pick.repayments.length + " 条、退货 " + pick.returns.length + " 条" +
+        (unpaid > 0.005 ? "\n\n⚠ 注意：这个范围还有 ¥" + fmtMoney(unpaid) + " 没还清，删除后本机就看不到这笔欠款了。" : "") +
+        "\n\n删除后本机就查不到这些记录了（7 天内可在面板顶部一键恢复）。确定吗？")) return;
     stashBeforeImport("archive");
     function keep(x){ return !(x && x.date) || String(x.date).slice(0, 4) > y; }
     data.orders = (data.orders || []).filter(keep);
